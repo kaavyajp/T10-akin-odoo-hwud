@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Same-origin Refound web server and authenticated Odoo JSON-2 gateway.
 
-Run the demo with `python3 server.py`. Live Odoo mode requires a trusted
+Run the application with `python3 server.py`. Odoo mode requires a trusted
 authentication reverse proxy plus environment configuration; credentials never
 enter browser code.
 """
@@ -40,7 +40,7 @@ DEFAULT_FIELDS = {
         "contactName": "contact_name", "email": "contact_email", "location": "location",
         "registrationId": "registration_number", "status": "verification_status",
         "notes": "application_notes", "submittedAt": "create_date", "decisionNote": "review_note",
-        "reviewedAt": "write_date", "documents": "document_ids",
+        "reviewedAt": "reviewed_at", "reviewerEmail": "reviewer_email", "documents": "document_ids",
         "registrationChecked": "review_registration_checked", "authorityChecked": "review_authority_checked",
         "evidenceChecked": "review_evidence_checked",
     },

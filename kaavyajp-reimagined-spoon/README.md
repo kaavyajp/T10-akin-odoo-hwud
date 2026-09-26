@@ -1,10 +1,10 @@
 # REFOUND — From surplus to significance
 
-Refound connects businesses with community organizations to put surplus resources back to good use: food, eligible medical equipment, study resources, and other essentials. This responsive, dependency-free demo includes a public site, partner verification, company/NGO/admin portals, explainable matching, transfers, reports, and impact reporting.
+Refound connects businesses with community organizations to put surplus resources back to good use: food, eligible medical equipment, study resources, and other essentials. This responsive, dependency-free web app includes local trial mode and an Odoo-backed deployment path for partner verification, company/NGO/admin portals, matching, orders, reports, and impact reporting.
 
 The logo mark is cropped from the supplied Refound brand PDF and shown with the wordmark and slogan throughout the app.
 
-## Run the product demo
+## Run locally
 
 Requires Python 3 (no Node.js, package installation, build, credentials, or database required).
 
@@ -44,11 +44,11 @@ In demo mode, listings, needs, orders, demo payments, messages, verification dec
 
 The real database integration is implemented as a server-side Odoo JSON-2 connector plus an installable add-on; browser code never receives the Odoo API key. A live connection cannot be activated from this workspace until it is configured against your actual Odoo instance. No credentials were supplied here, so the app remains in demo mode until you connect a staging database.
 
-1. Install `odoo_addons/refound_marketplace` into an **Odoo 19** staging instance, update the Apps list, and install **Refound Marketplace**. The connector targets Odoo 19's JSON-2 API. Older Odoo releases require a different version-matched connector, not exposing the legacy XML-RPC password in the browser.
+1. Install `odoo_addons/refound_marketplace` into an **Odoo 19** staging instance, update the Apps list, and install or upgrade **Refound Marketplace**. Upgrade the add-on after code changes so the verification audit fields (`reviewed_at`, `reviewer_email`) are present. The connector targets Odoo 19's JSON-2 API. Older Odoo releases require a different version-matched connector, not exposing the legacy XML-RPC password in the browser.
 2. Create a dedicated internal Odoo API user with the least privileges needed for Refound models and private verification attachments. Generate a restricted API key for the staging database.
-3. Copy `.env.example` to `.env`, fill in `ODOO_URL`, `ODOO_DATABASE`, `ODOO_API_KEY`, and a random `REFOUND_PROXY_SECRET` of at least 32 characters. The local server binds to `127.0.0.1`. Never commit `.env`, send API keys in chat, or expose this app/API server directly to the public internet.
-4. Configure an HTTPS reverse proxy/identity provider in front of the app. It must authenticate users and overwrite (not pass through user-supplied) `X-Refound-Proxy-Auth`, `X-Refound-User`, and `X-Refound-Role` on every `/api` request. For approved partners, set `X-Refound-Organization-ID` to the Odoo verified `refound.organization` record ID. Set `REFOUND_LOGIN_PATH` to its same-origin sign-in entry. Admin role must come only from trusted identity claims.
-5. Run `python3 server.py` and check `/api/health` reports `mode: odoo`. Missing or partial Odoo configuration fails visibly; the server will not silently swap a configured live environment to demo mode.
+3. Copy `.env.example` to `.env` and fill in `ODOO_URL`, `ODOO_DATABASE`, `ODOO_API_KEY`, and a randomly generated `REFOUND_PROXY_SECRET` of at least 32 characters. The local server binds to `127.0.0.1`. Never commit `.env`, send credentials in chat, or expose this app/API server directly to the public internet.
+4. Configure the existing HTTPS identity provider/reverse proxy in front of the app. It must authenticate users and overwrite (never pass through user-supplied) `X-Refound-Proxy-Auth`, `X-Refound-User`, and `X-Refound-Role` on every `/api` request. Map the administrator role only from an explicit, invitation-only IdP admin group; do not let users select or submit their own role. For approved partners, set `X-Refound-Organization-ID` to the Odoo verified `refound.organization` record ID. Set `REFOUND_LOGIN_PATH` to the provider's same-origin sign-in entry. Provision trial admins in that IdP group; there is no default live admin password or backdoor account.
+5. Run `python3 server.py` and check `/api/health` reports `mode: odoo`, then sign in through the trusted provider and confirm Odoo-backed records load. The health endpoint reports configuration mode, not an end-to-end Odoo availability check. Missing or partial Odoo configuration fails visibly; the server will not silently swap a configured live environment to demo mode.
 6. Configure the organization’s actual Odoo payment provider before charging for surplus. Until a provider/webhook is set up, paid checkout is deliberately disabled in Odoo mode; orders remain unpaid and the company cannot accept them. Free/donation orders can be recorded. Demo card/bank options never contact a gateway or move money.
 
 The included add-on provides Odoo models and validation for organization applications and private registration attachments, detailed companies' resources, detailed NGO needs/budgets, stock/request reservations, payment status, orders, messages, company-managed delivery carrier/tracking/ETA/fee, NGO receipt confirmation, and reviewer decision checklists. The staging add-on creates persistent Odoo models; remove seeded sample records and complete Odoo backups, access-control, attachment-retention, email, payment-provider and legal/privacy reviews before accepting production data.

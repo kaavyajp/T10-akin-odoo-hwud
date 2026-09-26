@@ -53,6 +53,17 @@ class OdooMappingTests(unittest.TestCase):
         self.assertEqual(records[0]["needId"], "8")
         self.assertEqual(records[0]["status"], "in_transit")
 
+    def test_normalize_preserves_verification_reviewer_audit_fields(self):
+        adapter = server.OdooJson2(server.Settings())
+        records = adapter.normalize("organization", [{
+            "id": 42,
+            "verification_status": "approved",
+            "reviewed_at": "2026-09-26 09:30:00",
+            "reviewer_email": "admin@example.test",
+        }])
+        self.assertEqual(records[0]["reviewedAt"], "2026-09-26 09:30:00")
+        self.assertEqual(records[0]["reviewerEmail"], "admin@example.test")
+
     def test_mapped_values_converts_iso_dates_to_odoo_datetime(self):
         payload = {"availableUntil": "2026-10-01T10:20:30.000Z", "expiresAt": "2026-10-05T23:59:59.000Z"}
         mapped = server.mapped_values("resource", payload)
@@ -75,6 +86,23 @@ class OdooMappingTests(unittest.TestCase):
         with patch.object(server, "SETTINGS", settings), self.assertRaises(server.ApiError) as error:
             server.authenticated(FakeHandler(), {"company"})
         self.assertEqual(error.exception.status, 401)
+
+    def test_admin_identity_is_taken_from_trusted_proxy_headers(self):
+        class FakeHandler:
+            headers = {
+                "X-Refound-Proxy-Auth": "correct-proxy-secret",
+                "X-Refound-User": "TRIAL.ADMIN@example.test",
+                "X-Refound-Role": "admin",
+            }
+
+        settings = server.Settings()
+        settings.proxy_secret = "correct-proxy-secret"
+        settings.odoo_url = "https://odoo.example"
+        settings.odoo_database = "staging"
+        settings.odoo_api_key = "not-a-real-api-key"
+        with patch.object(server, "SETTINGS", settings):
+            principal = server.authenticated(FakeHandler(), {"admin"})
+        self.assertEqual(principal, {"user": "trial.admin@example.test", "role": "admin", "organizationId": 0})
 
 
 if __name__ == "__main__":
