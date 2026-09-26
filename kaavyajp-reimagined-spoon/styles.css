@@ -809,7 +809,60 @@ h1 { margin: 8px 0 6px; color: #27332a; font: 700 27px/1.25 Manrope, sans-serif;
   .report-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 580px) {
-  .report-toolbar { align-items: flex-start; flex-direction: column; }
+  .report-toolbar { align-items: flex-start; flex-direction: column;   }
+
+  /* A little more depth and breathing room for the product workspace. */
+  body { background-image: radial-gradient(ellipse at 88% 4%, #edf3e7 0, transparent 30%), linear-gradient(135deg, #fbfcf9, #f7f8f4); }
+  .sidebar { background: linear-gradient(180deg, #f4f6f0, #edf2e8); }
+  .topbar { backdrop-filter: blur(14px); }
+  .nav-item { min-height: 45px; font-size: 13px; }
+  .content { padding-top: 43px; }
+  .page-heading h1 { font-size: 30px; }
+  .page-heading p { font-size: 12px; }
+  .eyebrow { font-size: 10px; }
+  .button { min-height: 40px; border-radius: 9px; font-size: 11px; }
+  .button-small { min-height: 33px; font-size: 10px; }
+  .metric-card { min-height: 128px; padding: 18px; border-color: #e6ebe1; border-radius: 13px; box-shadow: 0 8px 22px #243b2410; }
+  .metric-top { font-size: 11px; }
+  .metric-value { font-size: 26px; }
+  .metric-detail { font-size: 10px; }
+  .panel, .listing-card, .need-card, .admin-application { border-color: #e6ebe2; border-radius: 13px; box-shadow: 0 7px 20px #243b240b; }
+  .panel { background: linear-gradient(150deg, #fff, #fdfefb); }
+  .section-header h2 { font-size: 17px; }
+  .match-copy strong, .pulse-row strong, .expiring-row strong, .mini-transfer strong { font-size: 11px; }
+  .match-copy p, .expiring-row p, .mini-transfer p { font-size: 10px; }
+  .public-header { min-height: 78px; box-shadow: 0 4px 18px #293b7510; }
+  .public-nav-link { padding: 10px 9px; font-size: 10px; }
+  .public-header-actions .button { min-height: 40px; font-size: 10px; }
+  .hero-chip { font-size: 10px; }
+  .hero-copy > p { font-size: 14px; }
+  .public-form label > span { font-size: 11px; }
+  .public-form input:not([type="checkbox"]), .public-form input[type="file"], .public-form textarea, .public-form select { min-height: 42px; border-radius: 9px; font-size: 12px; }
+  .public-form textarea { min-height: 100px; }
+  .verification-status-card, .admin-application { padding: 17px; border-radius: 12px; box-shadow: 0 8px 22px #293b750c; }
+  .verification-status-card strong, .application-heading h2 { font-size: 13px; }
+  .verification-status-card p, .application-details strong, .application-note { font-size: 10px; }
+  .application-details { padding: 13px; border-radius: 10px; }
+  .application-details small, .application-heading small, .application-type { font-size: 9px; }
+  .review-checklist label span { font-size: 10px; }
+  .admin-queue-summary article { padding: 16px; border-radius: 11px; box-shadow: 0 6px 18px #293b7509; }
+  .admin-queue-summary span { font-size: 10px; }
+  .auth-card, .pricing-card, .verification-aside { border-radius: 16px; box-shadow: 0 16px 44px #293b7512; }
+
+  @media (max-width: 850px) {
+    .content { padding-top: 31px; }
+    .page-heading h1 { font-size: 26px; }
+    .metric-card { min-height: 112px; padding: 14px; }
+  }
+
+  @media (max-width: 650px) {
+    .public-header { min-height: 0; }
+    .public-nav-link { font-size: 9px; }
+    .content { padding-top: 25px; }
+    .page-heading h1 { font-size: 24px; }
+    .metric-card { min-height: 104px; }
+    .metric-value { font-size: 23px; }
+  }
   .report-toolbar label { width: 100%; justify-content: space-between; }
   .report-toolbar select { min-width: 145px; }
   .report-grid { gap: 9px; }

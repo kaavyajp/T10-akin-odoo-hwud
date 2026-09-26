@@ -38,6 +38,8 @@ class RefoundOrganization(models.Model):
         required=True, default="pending", tracking=True, index=True,
     )
     review_note = fields.Text()
+    reviewed_at = fields.Datetime(readonly=True)
+    reviewer_email = fields.Char(readonly=True, tracking=True)
     reviewed_by = fields.Many2one("res.users", readonly=True)
     review_registration_checked = fields.Boolean(readonly=True)
     review_authority_checked = fields.Boolean(readonly=True)
@@ -59,20 +61,27 @@ class RefoundOrganization(models.Model):
                 raise ValidationError(_("Complete all three identity and evidence checks before approval."))
         if decision == "rejected" and not str(decision_note).strip():
             raise ValidationError(_("Record a reason or a follow-up request before rejection."))
+        reviewed_at = fields.Datetime.now()
+        reviewer_email = str(reviewer_email).strip().lower()[:254]
         organization.write({
             "verification_status": decision,
             "review_note": str(decision_note)[:1000],
+            "reviewed_at": reviewed_at,
+            "reviewer_email": reviewer_email,
             "reviewed_by": self.env.user.id,
             "review_registration_checked": bool(registration_checked),
             "review_authority_checked": bool(authority_checked),
             "review_evidence_checked": bool(evidence_checked),
         })
-        organization.message_post(body=_("Verification decision: %s. %s") % (decision, str(decision_note)[:1000]))
+        organization.message_post(body=_("Verification decision: %s by %s. %s") % (
+            decision, reviewer_email or self.env.user.display_name, str(decision_note)[:1000],
+        ))
         organization.document_ids.write({"review_status": "accepted" if decision == "approved" else "rejected"})
         return {
             "status": organization.verification_status,
             "decisionNote": organization.review_note or "",
-            "reviewedAt": fields.Datetime.to_string(fields.Datetime.now()),
+            "reviewedAt": fields.Datetime.to_string(reviewed_at),
+            "reviewerEmail": reviewer_email,
         }
 
     @api.model
