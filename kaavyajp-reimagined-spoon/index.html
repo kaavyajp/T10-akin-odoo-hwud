@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f7f3" />
+    <meta name="description" content="Refound — from surplus to significance. Connecting businesses with the communities that need them." />
+    <link rel="icon" type="image/png" href="./assets/refound-mark.png" />
+    <title>REFOUND — From surplus to significance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div id="public-header"></div>
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#overview" aria-label="Refound home">
+          <img class="brand-symbol" src="./assets/refound-mark.png" alt="" />
+          <span class="brand-copy"><span class="brand-name">REFOUND</span><span class="brand-tagline">From surplus to significance</span></span>
+        </a>
+        <div class="workspace-label" id="workspace-label">WORKSPACE</div>
+        <nav class="primary-nav" id="workspace-nav" aria-label="Workspace navigation"></nav>
+        <div class="sidebar-bottom">
+          <div class="help-card">
+            <div class="help-spark">✳</div>
+            <strong>Good things grow<br />when we share.</strong>
+            <p>Every saved meal makes a difference.</p>
+            <button class="text-button" data-view="impact">See your impact <span>↗</span></button>
+          </div>
+          <button class="profile-button" data-action="sign-out">
+            <span class="avatar avatar-dark" id="profile-avatar">?</span>
+            <span class="profile-copy"><strong id="profile-name">Demo account</strong><small id="profile-role">Workspace partner</small></span>
+            <span class="profile-more">↪</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div class="mobile-brand brand">
+            <img class="brand-symbol" src="./assets/refound-mark.png" alt="" />
+            <span class="brand-copy"><span class="brand-name">REFOUND</span><span class="brand-tagline">From surplus to significance</span></span>
+          </div>
+          <button class="mobile-menu" id="menu-toggle" aria-label="Toggle navigation">☰</button>
+          <div class="breadcrumb"><span id="topbar-account">Demo workspace</span><span class="breadcrumb-slash">/</span><strong id="page-breadcrumb">Overview</strong></div>
+          <div class="topbar-actions">
+            <span class="live-status"><i></i> Demo · Not connected to Odoo</span>
+            <button class="icon-button notification-button" aria-label="Notifications">✳</button>
+            <span class="avatar avatar-light" id="topbar-avatar">?</span>
+          </div>
+        </header>
+
+        <div class="content" id="view-root" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modal-root" hidden></div>
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
