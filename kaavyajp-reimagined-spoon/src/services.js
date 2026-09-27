@@ -4,20 +4,36 @@ const STORAGE_KEY = 'resource-demo-state-v1';
 const VERIFICATION_KEY = 'refound-demo-verifications-v1';
 const SALES_LEADS_KEY = 'refound-demo-sales-leads-v1';
 const CART_KEY = 'refound-demo-cart-v1';
+const CHAT_KEY = 'refound-demo-chats-v1';
 const clone = (value) => JSON.parse(JSON.stringify(value));
 /** @typedef {{surplus: typeof seedSurplus, needs: typeof seedNeeds, transfers: typeof seedTransfers, metrics: typeof seedMetrics, orders: object[], messages: object[]}} DemoState */
 
 const seedVerifications = [
   { id: 'v-101', organizationName: 'Meadow & Fig', organizationType: 'company', contactName: 'Morgan Fields', email: 'morgan@meadowfig.demo', location: 'Downtown · 0.8 mi', registrationId: 'DEMO-C-001', documents: ['business-registration-demo.pdf'], notes: 'Seeded approved business for exploring the company workspace.', status: 'approved', submittedAt: '2026-09-18T12:00:00.000Z', reviewedAt: '2026-09-19T12:00:00.000Z', decisionNote: 'Seeded demo verification.' },
-  { id: 'v-102', organizationName: 'Northside Food Collective', organizationType: 'ngo', contactName: 'Jamie River', email: 'jamie@northside.demo', location: 'Northside', registrationId: 'DEMO-N-102', documents: ['charity-letter-demo.pdf'], notes: 'Demo organization awaiting admin review.', status: 'pending', submittedAt: '2026-09-24T12:00:00.000Z' },
+  { id: 'v-102', organizationName: 'Northside Food Collective', organizationType: 'ngo', contactName: 'Jamie River', email: 'jamie@northside.demo', location: 'Northside', registrationId: 'DEMO-N-102', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo organization for exploring the NGO workspace.', status: 'approved', submittedAt: '2026-09-24T12:00:00.000Z', reviewedAt: '2026-09-24T12:30:00.000Z', reviewerEmail: 'admin@refound.demo', decisionNote: 'Seeded demo verification.' },
   { id: 'v-103', organizationName: 'Cedar Street Community Kitchen', organizationType: 'ngo', contactName: 'Robin Lee', email: 'robin@cedarstreet.demo', location: 'Eastside', registrationId: 'DEMO-N-103', documents: ['nonprofit-registration-demo.pdf'], notes: 'Demo community kitchen awaiting admin review.', status: 'pending', submittedAt: '2026-09-25T12:00:00.000Z' },
+  { id: 'v-104', organizationName: 'Riverside Kitchen', organizationType: 'company', contactName: 'Demo Company Contact', email: 'riverside@partners.demo', location: 'Riverside', registrationId: 'DEMO-C-104', documents: ['business-registration-demo.pdf'], notes: 'Seeded verified demo company.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-105', organizationName: 'Eastside Co-op', organizationType: 'company', contactName: 'Demo Company Contact', email: 'eastside@partners.demo', location: 'Eastside', registrationId: 'DEMO-C-105', documents: ['business-registration-demo.pdf'], notes: 'Seeded verified demo company.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-106', organizationName: 'Northside Health Supply', organizationType: 'company', contactName: 'Demo Company Contact', email: 'health@partners.demo', location: 'Northside', registrationId: 'DEMO-C-106', documents: ['business-registration-demo.pdf'], notes: 'Seeded verified demo company.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-107', organizationName: 'Campus Book Co.', organizationType: 'company', contactName: 'Demo Company Contact', email: 'campus@partners.demo', location: 'Campus', registrationId: 'DEMO-C-107', documents: ['business-registration-demo.pdf'], notes: 'Seeded verified demo company.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-108', organizationName: 'Harbor Street Outfitters', organizationType: 'company', contactName: 'Demo Company Contact', email: 'harbor@partners.demo', location: 'Harbor Street', registrationId: 'DEMO-C-108', documents: ['business-registration-demo.pdf'], notes: 'Seeded verified demo company.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-109', organizationName: 'Harbor House Pantry', organizationType: 'ngo', contactName: 'Demo NGO Contact', email: 'harbor-pantry@partners.demo', location: 'Downtown', registrationId: 'DEMO-N-109', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo community organization.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-110', organizationName: 'Sunrise Youth Center', organizationType: 'ngo', contactName: 'Demo NGO Contact', email: 'sunrise@partners.demo', location: 'Eastside', registrationId: 'DEMO-N-110', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo community organization.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-111', organizationName: 'The Welcome Table', organizationType: 'ngo', contactName: 'Demo NGO Contact', email: 'welcome-table@partners.demo', location: 'Riverside', registrationId: 'DEMO-N-111', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo community organization.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-112', organizationName: 'Oak Street Community Fridge', organizationType: 'ngo', contactName: 'Demo NGO Contact', email: 'oak-street@partners.demo', location: 'Eastside', registrationId: 'DEMO-N-112', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo community organization.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-113', organizationName: 'Northside Community Clinic', organizationType: 'ngo', contactName: 'Demo NGO Contact', email: 'clinic@partners.demo', location: 'Northside', registrationId: 'DEMO-N-113', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo community organization.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-114', organizationName: 'Eastbank Learning Hub', organizationType: 'ngo', contactName: 'Demo NGO Contact', email: 'eastbank@partners.demo', location: 'Eastbank', registrationId: 'DEMO-N-114', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo community organization.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
+  { id: 'v-115', organizationName: 'Northside Learning Circle', organizationType: 'ngo', contactName: 'Demo NGO Contact', email: 'learning-circle@partners.demo', location: 'Northside', registrationId: 'DEMO-N-115', documents: ['charity-letter-demo.pdf'], notes: 'Seeded verified demo community organization.', status: 'approved', submittedAt: '2026-09-20T12:00:00.000Z', reviewedAt: '2026-09-21T12:00:00.000Z', reviewerEmail: 'admin@refound.demo' },
 ];
 
 /** Local-only identity demo; production authentication must run through a trusted backend. */
 export class DemoVerificationService {
   constructor() {
     try {
-      this.applications = JSON.parse(localStorage.getItem(VERIFICATION_KEY) ?? 'null') ?? clone(seedVerifications);
+      const saved = JSON.parse(localStorage.getItem(VERIFICATION_KEY) ?? 'null');
+      this.applications = Array.isArray(saved) ? saved : clone(seedVerifications);
+      const existingIds = new Set(this.applications.map((application) => application.id));
+      this.applications.push(...clone(seedVerifications.filter((application) => !existingIds.has(application.id))));
     } catch (error) {
       console.error('Unable to read demo organization verifications from browser storage.', error);
       this.applications = clone(seedVerifications);
@@ -227,6 +243,12 @@ export class OdooApiResourceService {
   async clearCart() { localStorage.removeItem(CART_KEY); }
   async createNeed(item) { return this.request('/needs', { method: 'POST', body: JSON.stringify(item) }); }
   async createSurplus(item) { return this.request('/surplus', { method: 'POST', body: JSON.stringify(item) }); }
+  async updateSurplus(id, item) { return this.request(`/surplus/${encodeURIComponent(id)}/update`, { method: 'POST', body: JSON.stringify(item) }); }
+  async createStripeCheckout(lines) {
+    const checkout = await this.request('/stripe/checkout', { method: 'POST', body: JSON.stringify({ lines }) });
+    await this.clearCart();
+    return checkout;
+  }
   async createOrder(_buyerOrganization, _paymentMethod, cart = this.getCart()) {
     const order = await this.request('/orders', { method: 'POST', body: JSON.stringify({ lines: cart.map(({ surplusId, needId, quantity }) => ({ surplusId, needId, quantity })) }) });
     await this.clearCart();
@@ -281,9 +303,129 @@ export class OdooApiVerificationService {
   async reset() { return this.request('/admin/demo-reset', { method: 'POST', body: '{}' }); }
 }
 
+/** Local trial chat. Production conversations use the authenticated Odoo chat API. */
+export class DemoChatService {
+  constructor() {
+    try {
+      this.conversations = JSON.parse(localStorage.getItem(CHAT_KEY) ?? '[]');
+      if (!Array.isArray(this.conversations)) throw new Error('Saved chats must be a list.');
+    } catch (error) {
+      console.error('Unable to load demo chats.', error);
+      this.conversations = [];
+    }
+  }
+
+  persist() {
+    localStorage.setItem(CHAT_KEY, JSON.stringify(this.conversations));
+  }
+
+  verifiedActor(applications, session) {
+    const organization = applications.find((item) => item.email === session?.email && item.status === 'approved');
+    if (!organization || organization.organizationType !== session.role) {
+      throw new Error('Partner chat is available to verified businesses and NGOs only.');
+    }
+    return organization;
+  }
+
+  async getOrganizations(applications, session) {
+    const actor = this.verifiedActor(applications, session);
+    return applications
+      .filter((item) => item.status === 'approved' && item.organizationType !== actor.organizationType && item.id !== actor.id)
+      .map((item) => ({ id: item.id, name: item.organizationName, role: item.organizationType, location: item.location }));
+  }
+
+  async getConversations(applications, session) {
+    const actor = this.verifiedActor(applications, session);
+    return this.conversations
+      .filter((conversation) => conversation.participantIds.includes(actor.id))
+      .map((conversation) => {
+        const peerId = conversation.participantIds.find((id) => id !== actor.id);
+        const peer = applications.find((item) => item.id === peerId);
+        const lastMessage = conversation.messages.at(-1);
+        return {
+          id: conversation.id,
+          peerOrganizationId: peerId,
+          peerOrganizationName: peer?.organizationName ?? 'Partner organization',
+          peerRole: peer?.organizationType ?? '',
+          lastMessage: lastMessage?.body ?? '',
+          lastMessageAt: lastMessage?.createdAt ?? conversation.createdAt,
+        };
+      })
+      .sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+  }
+
+  async startConversation(peerId, applications, session) {
+    const actor = this.verifiedActor(applications, session);
+    const peer = applications.find((item) => item.id === peerId && item.status === 'approved');
+    if (!peer || peer.organizationType === actor.organizationType || peer.id === actor.id) {
+      throw new Error('Choose a verified organization of the other partner type.');
+    }
+    const participantIds = [actor.id, peer.id].sort();
+    let conversation = this.conversations.find((item) => item.participantIds[0] === participantIds[0] && item.participantIds[1] === participantIds[1]);
+    if (!conversation) {
+      conversation = { id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, participantIds, createdAt: new Date().toISOString(), messages: [] };
+      this.conversations.unshift(conversation);
+      this.persist();
+    }
+    return conversation.id;
+  }
+
+  async getMessages(conversationId, applications, session) {
+    const actor = this.verifiedActor(applications, session);
+    const conversation = this.conversations.find((item) => item.id === conversationId && item.participantIds.includes(actor.id));
+    if (!conversation) throw new Error('Chat not found or you are not a participant.');
+    return structuredClone(conversation.messages);
+  }
+
+  async sendMessage(conversationId, body, applications, session) {
+    const actor = this.verifiedActor(applications, session);
+    const conversation = this.conversations.find((item) => item.id === conversationId && item.participantIds.includes(actor.id));
+    const text = String(body ?? '').trim();
+    if (!conversation) throw new Error('Chat not found or you are not a participant.');
+    if (!text || text.length > 1500) throw new Error('Messages must contain 1–1,500 characters.');
+    const message = {
+      id: `message-${Date.now()}`,
+      senderOrganizationId: actor.id,
+      senderOrganization: actor.organizationName,
+      senderRole: actor.organizationType,
+      body: text,
+      createdAt: new Date().toISOString(),
+    };
+    conversation.messages.push(message);
+    this.persist();
+    return message;
+  }
+}
+
+export class OdooApiChatService {
+  async request(path, options = {}) {
+    const headers = new Headers(options.headers ?? {});
+    if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+    const response = await fetch(`/api${path}`, { ...options, headers, credentials: 'same-origin' });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Chat API request failed (${response.status}).`);
+    return payload;
+  }
+
+  async getOrganizations() { return this.request('/chat/organizations'); }
+  async getConversations() { return this.request('/chats'); }
+  async startConversation(organizationId) {
+    const conversation = await this.request('/chats', { method: 'POST', body: JSON.stringify({ organizationId }) });
+    return conversation.id;
+  }
+  async getMessages(conversationId) {
+    return this.request(`/chats/${encodeURIComponent(conversationId)}/messages`);
+  }
+  async sendMessage(conversationId, body) {
+    return this.request(`/chats/${encodeURIComponent(conversationId)}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
+  }
+}
+
 /** Local deterministic adapter. Replace this implementation with OdooServiceAdapter for live records. */
 export class DemoResourceService {
   constructor() {
+    this.persistent = false;
+    this.pendingPersistence = Promise.resolve();
     const saved = localStorage.getItem(STORAGE_KEY);
     /** @type {DemoState} */
     this.state = saved ? JSON.parse(saved) : {
@@ -327,6 +469,54 @@ export class DemoResourceService {
 
   persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+    if (this.persistent) {
+      const snapshot = JSON.stringify(this.state);
+      this.pendingPersistence = this.pendingPersistence.catch(() => {}).then(async () => {
+        const response = await fetch('/api/demo/state', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: snapshot,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Database save failed (${response.status}).`);
+      }).catch((error) => {
+        console.error('Unable to persist Refound marketplace data in SQLite.', error);
+        throw error;
+      });
+    }
+  }
+
+  async enablePersistence() {
+    this.persistent = true;
+    const response = await fetch('/api/demo/state', { credentials: 'same-origin', cache: 'no-store' });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Unable to load Refound SQLite data (${response.status}).`);
+    if (payload.state) {
+      this.state = payload.state;
+      this.state.surplus ??= clone(seedSurplus);
+      this.state.needs ??= clone(seedNeeds);
+      this.state.transfers ??= clone(seedTransfers);
+      this.state.metrics ??= clone(seedMetrics);
+      this.state.orders ??= [];
+      this.state.messages ??= [];
+      for (const item of seedSurplus.filter((candidate) => Number(candidate.id.slice(2)) >= 107)) {
+        if (!this.state.surplus.some((saved) => saved.id === item.id)) this.state.surplus.push(clone(item));
+      }
+      for (const item of seedNeeds.filter((candidate) => Number(candidate.id.slice(2)) >= 206)) {
+        if (!this.state.needs.some((saved) => saved.id === item.id)) this.state.needs.push(clone(item));
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      this.persist();
+      await this.pendingPersistence;
+    } else {
+      this.persist();
+      await this.pendingPersistence;
+    }
+  }
+
+  async flushPersistence() {
+    await this.pendingPersistence;
   }
 
   /** @returns {typeof seedSurplus} */
@@ -416,6 +606,29 @@ export class DemoResourceService {
     return clone(record);
   }
 
+  async updateSurplus(id, item, donor) {
+    const current = this.state.surplus.find((record) => record.id === id);
+    if (!current || current.donor !== donor) throw new Error('You can only edit a listing owned by your business.');
+    if (current.status !== 'available') throw new Error('Only available listings can be edited.');
+    const resourceType = item.resourceType ?? current.resourceType ?? 'Food';
+    const priceAED = Number(item.priceAED);
+    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 9999) throw new Error('Quantity must be a whole number between 1 and 9,999.');
+    if (!item.title.trim() || !item.location.trim() || !item.condition?.trim()) throw new Error('A listing title, condition, and company handoff location are required.');
+    if (!RESOURCE_TYPES.includes(resourceType) || !RESOURCE_CATEGORIES[resourceType]?.includes(item.category)) throw new Error('Choose a valid resource type and category.');
+    if (!Number.isFinite(priceAED) || priceAED < 0 || priceAED > 100_000) throw new Error('Enter a valid per-unit price between AED 0 and AED 100,000.');
+    const availableUntil = new Date(item.availableUntil).getTime();
+    if (Number.isNaN(availableUntil) || availableUntil <= Date.now()) throw new Error('The company delivery window must be in the future.');
+    const expiresAt = item.expiresAt?.trim() ?? '';
+    if ((resourceType === 'Food' || resourceType === 'Medical equipment') && (!expiresAt || !item.storageInstructions?.trim())) throw new Error('Food and medical equipment require an expiry date and handling instructions.');
+    if (expiresAt && (Number.isNaN(new Date(expiresAt).getTime()) || new Date(expiresAt).getTime() <= Date.now() || new Date(expiresAt).getTime() < new Date(item.availableUntil).getTime())) throw new Error('Set a future expiry date after the company order-by window.');
+    if (resourceType === 'Medical equipment' && /\b(medicines?|prescriptions?|pharmaceuticals?|expired|recalled|sharps?)\b/i.test(`${item.title} ${item.notes}`)) throw new Error('Medicines, recalled or expired items, and sharps are not accepted in this demo.');
+    if (String(item.specifications ?? '').length > 700 || String(item.storageInstructions ?? '').length > 500 || String(item.notes ?? '').length > 700) throw new Error('Listing specifications, handling instructions, or notes exceed the field limits.');
+    if (priceAED > 0 && /\b(free|donat(?:e|ed|ion))\b/i.test(`${item.title} ${item.notes}`)) throw new Error('This reads like a free donation. Set the price to AED 0, or clarify the paid offer details.');
+    Object.assign(current, item, { resourceType, priceAED: Math.round(priceAED * 100) / 100, expiresAt, id: current.id, donor: current.donor, listedAt: current.listedAt, status: current.status });
+    this.persist();
+    return clone(current);
+  }
+
   getCart() {
     try {
       const saved = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]');
@@ -480,6 +693,20 @@ export class DemoResourceService {
 
   async clearCart() {
     this.persistCart([]);
+  }
+
+  async createStripeCheckout(lines) {
+    await this.flushPersistence();
+    const response = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lines }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Stripe Checkout could not start (${response.status}).`);
+    await this.clearCart();
+    return payload;
   }
 
   async createOrder(buyerOrganization, paymentMethod = 'demo-card') {
@@ -649,6 +876,7 @@ export class DemoResourceService {
   async advanceTransfer(transferId) {
     const transfer = this.state.transfers.find((item) => item.id === transferId);
     if (!transfer) throw new Error('Transfer not found.');
+    if (transfer.paymentStatus === 'awaiting_payment') throw new Error('The company can review this order after Stripe confirms payment.');
     if (transfer.status !== 'pending') throw new Error('Use the company delivery or NGO receipt actions to move this order to its next step.');
     transfer.status = 'approved';
     this.updateOrderStatus(transfer.orderId);
@@ -661,6 +889,7 @@ export class DemoResourceService {
     this.state.orders = [];
     this.state.messages = [];
     this.persist();
+    await this.flushPersistence();
     localStorage.removeItem(VERIFICATION_KEY);
     localStorage.removeItem(CART_KEY);
   }
@@ -736,6 +965,30 @@ export class DemoAssistantAdapter {
       return 'This local assistant uses deterministic demo rules: prompts stay in your browser and are not sent to a model. Live AI should run behind a secure backend, minimize personal data, and let people verify suggestions before acting.';
     }
     return 'I can explain community matching, surplus listings, organization verification, privacy, and the planned Odoo connection. Tell me which part you would like help with.';
+  }
+}
+
+export class GeminiAssistantAdapter {
+  async answer(prompt, matches = []) {
+    const response = await fetch('/api/assistant', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        matches: matches.slice(0, 5).map(({ surplus }) => ({
+          title: surplus.title,
+          category: surplus.category,
+          quantity: surplus.quantity,
+          unit: surplus.unit,
+          priceAED: surplus.priceAED ?? 0,
+        })),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Gemini assistant request failed (${response.status}).`);
+    if (typeof payload.answer !== 'string' || !payload.answer.trim()) throw new Error('Gemini returned an invalid answer.');
+    return payload.answer;
   }
 }
 

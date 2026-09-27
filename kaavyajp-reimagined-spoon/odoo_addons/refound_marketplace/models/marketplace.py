@@ -350,7 +350,84 @@ class RefoundOrder(models.Model):
             if need.quantity == 0:
                 need.state = "fulfilled"
             orders |= order
-        return orders[:1].id
+        return orders.ids if payment_provider_configured else orders[:1].id
+
+    @api.model
+    def action_refound_mark_paid(self, order_ids, session_id, payment_intent=""):
+        ids = [int(value) for value in order_ids]
+        orders = self.browse(ids).exists()
+        if not orders or len(orders) != len(ids):
+            raise ValidationError(_("The Stripe checkout references an unknown order."))
+        for order in orders:
+            if order.payment_status == "paid" and order.payment_reference == str(session_id):
+                continue
+            if order.state != "pending_payment" or order.payment_status != "pending":
+                raise ValidationError(_("Only a pending Stripe order can be marked paid."))
+            order.write({
+                "payment_status": "paid",
+                "payment_method": "Stripe",
+                "payment_reference": str(session_id)[:255],
+                "state": "pending",
+            })
+        return {"status": "paid", "paymentIntent": str(payment_intent)[:255]}
+
+    @api.model
+    def action_refound_cancel_unpaid(self, order_ids):
+        orders = self.browse([int(value) for value in order_ids]).exists()
+        for order in orders:
+            if order.state not in {"pending", "pending_payment"} or order.payment_status not in {"pending", "not_required"}:
+                continue
+            order.resource_id.quantity += order.quantity
+            if order.resource_id.state == "reserved":
+                order.resource_id.state = "published"
+            order.need_id.quantity += order.quantity
+            if order.need_id.state == "fulfilled":
+                order.need_id.state = "open"
+            order.write({
+                "payment_status": "failed" if order.payment_status == "pending" else "not_required",
+                "state": "cancelled",
+                "payment_reference": "Stripe checkout not completed",
+            })
+        return True
+
+    @api.model
+    def action_refound_mark_paid(self, order_ids, session_id, payment_intent=""):
+        orders = self.browse([int(value) for value in order_ids]).exists()
+        if not orders or len(orders) != len(order_ids):
+            raise ValidationError(_("The Stripe checkout references an unknown order."))
+        for order in orders:
+            if order.payment_status == "paid" and order.payment_reference == str(session_id):
+                continue
+            if order.state != "pending_payment" or order.payment_status != "pending":
+                raise ValidationError(_("Only a pending Stripe order can be marked paid."))
+            order.write({
+                "payment_status": "paid",
+                "payment_method": "Stripe",
+                "payment_reference": str(session_id)[:255],
+                "state": "pending",
+            })
+        return {"status": "paid", "paymentIntent": str(payment_intent)[:255]}
+
+    @api.model
+    def action_refound_cancel_unpaid(self, order_ids):
+        orders = self.browse([int(value) for value in order_ids]).exists()
+        if not orders:
+            return True
+        for order in orders:
+            if order.state not in {"pending", "pending_payment"} or order.payment_status not in {"pending", "not_required"}:
+                continue
+            order.resource_id.quantity += order.quantity
+            if order.resource_id.state == "reserved":
+                order.resource_id.state = "published"
+            order.need_id.quantity += order.quantity
+            if order.need_id.state == "fulfilled":
+                order.need_id.state = "open"
+            order.write({
+                "payment_status": "failed" if order.payment_status == "pending" else "not_required",
+                "state": "cancelled",
+                "payment_reference": "Stripe checkout not completed",
+            })
+        return True
 
     def action_refound_accept(self, order_id, organization_id, role):
         order = self.browse(int(order_id)).exists()
@@ -428,3 +505,121 @@ class RefoundOrderMessage(models.Model):
             "body": text,
         })
         return message.id
+
+
+class RefoundConversation(models.Model):
+    _name = "refound.conversation"
+    _description = "Refound Verified Partner Conversation"
+    _order = "write_date desc, create_date desc"
+
+    company_organization_id = fields.Many2one("refound.organization", required=True, ondelete="cascade", index=True)
+    ngo_organization_id = fields.Many2one("refound.organization", required=True, ondelete="cascade", index=True)
+    message_ids = fields.One2many("refound.conversation.message", "conversation_id")
+
+    _sql_constraints = [
+        ("refound_conversation_partner_pair_unique", "unique(company_organization_id, ngo_organization_id)", "A conversation already exists for this partner pair."),
+        ("refound_conversation_distinct_partners", "check(company_organization_id != ngo_organization_id)", "A conversation must be between two distinct organizations."),
+    ]
+
+    @api.model
+    def _refound_verified_actor(self, organization_id):
+        organization = self.env["refound.organization"].browse(int(organization_id)).exists()
+        if not organization or organization.verification_status != "approved" or organization.organization_type not in {"company", "ngo"}:
+            raise AccessError(_("Only verified businesses and NGOs can use partner chat."))
+        return organization
+
+    @api.model
+    def list_for_refound_organization(self, organization_id):
+        organization = self._refound_verified_actor(organization_id)
+        domain = [("company_organization_id", "=", organization.id)] if organization.organization_type == "company" else [("ngo_organization_id", "=", organization.id)]
+        conversations = self.search(domain, order="write_date desc, create_date desc")
+        results = []
+        for conversation in conversations:
+            peer = conversation.ngo_organization_id if organization == conversation.company_organization_id else conversation.company_organization_id
+            latest = conversation.message_ids.sorted("create_date")[-1:]
+            last_message = latest[0] if latest else False
+            results.append({
+                "id": str(conversation.id),
+                "peerOrganizationId": str(peer.id),
+                "peerOrganizationName": peer.name,
+                "peerRole": peer.organization_type,
+                "lastMessage": last_message.body if last_message else "",
+                "lastMessageAt": fields.Datetime.to_string(last_message.create_date) if last_message else fields.Datetime.to_string(conversation.create_date),
+            })
+        return results
+
+    @api.model
+    def get_or_create_for_refound_partners(self, organization_id, peer_organization_id):
+        actor = self._refound_verified_actor(organization_id)
+        peer = self._refound_verified_actor(peer_organization_id)
+        if actor == peer or actor.organization_type == peer.organization_type:
+            raise ValidationError(_("Chat must be between a business and a different verified NGO."))
+        company = actor if actor.organization_type == "company" else peer
+        ngo = actor if actor.organization_type == "ngo" else peer
+        conversation = self.search([
+            ("company_organization_id", "=", company.id),
+            ("ngo_organization_id", "=", ngo.id),
+        ], limit=1)
+        if not conversation:
+            conversation = self.create({
+                "company_organization_id": company.id,
+                "ngo_organization_id": ngo.id,
+            })
+        return str(conversation.id)
+
+    def _refound_require_participant(self, organization_id):
+        self.ensure_one()
+        organization = self._refound_verified_actor(organization_id)
+        if organization not in (self.company_organization_id | self.ngo_organization_id):
+            raise AccessError(_("You are not a participant in this conversation."))
+        return organization
+
+    @api.model
+    def get_messages_for_refound_organization(self, conversation_id, organization_id):
+        conversation = self.browse(int(conversation_id)).exists()
+        if not conversation:
+            raise ValidationError(_("Chat not found."))
+        conversation._refound_require_participant(organization_id)
+        return [{
+            "id": str(message.id),
+            "senderOrganizationId": str(message.sender_organization_id.id),
+            "senderOrganization": message.sender_organization_id.name,
+            "senderRole": message.sender_role,
+            "body": message.body,
+            "createdAt": fields.Datetime.to_string(message.create_date),
+        } for message in conversation.message_ids.sorted("create_date")]
+
+    @api.model
+    def create_message_for_refound_organization(self, conversation_id, organization_id, body):
+        conversation = self.browse(int(conversation_id)).exists()
+        if not conversation:
+            raise ValidationError(_("Chat not found."))
+        organization = conversation._refound_require_participant(organization_id)
+        text = str(body).strip()
+        if not text or len(text) > 1500:
+            raise ValidationError(_("Messages must contain 1–1,500 characters."))
+        message = self.env["refound.conversation.message"].create({
+            "conversation_id": conversation.id,
+            "sender_organization_id": organization.id,
+            "sender_role": organization.organization_type,
+            "body": text,
+        })
+        return {
+            "id": str(message.id),
+            "senderOrganizationId": str(organization.id),
+            "senderOrganization": organization.name,
+            "senderRole": organization.organization_type,
+            "body": text,
+            "createdAt": fields.Datetime.to_string(message.create_date),
+        }
+
+
+class RefoundConversationMessage(models.Model):
+    _name = "refound.conversation.message"
+    _description = "Refound Partner Chat Message"
+    _order = "create_date asc, id asc"
+
+    conversation_id = fields.Many2one("refound.conversation", required=True, ondelete="cascade", index=True)
+    sender_organization_id = fields.Many2one("refound.organization", required=True, ondelete="restrict")
+    sender_role = fields.Selection([("company", "Company"), ("ngo", "NGO")], required=True)
+    body = fields.Text(required=True)
