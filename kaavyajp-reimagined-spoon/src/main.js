@@ -1,47 +1,50 @@
-import { DemoAssistantAdapter, DemoExtractionAdapter, DemoResourceService, DemoSalesService, DemoVerificationService, OdooApiResourceService, OdooApiVerificationService, buildMatches, formatExpiry } from './services.js';
+import { DemoAssistantAdapter, DemoChatService, DemoExtractionAdapter, DemoResourceService, DemoSalesService, DemoVerificationService, GeminiAssistantAdapter, OdooApiChatService, OdooApiResourceService, OdooApiVerificationService, buildMatches, formatExpiry } from './services.js';
 import { RESOURCE_CATEGORIES, RESOURCE_TYPES } from './data.js';
-import { buildTransferCsv, buildTransferReport } from './reporting.js';
+import { buildOrganizationVerificationCsv, buildOrganizationVerificationReport, buildTransferCsv, buildTransferReport } from './reporting.js';
 import { renderPublicHeader, renderPublicPage } from './public-pages.js';
 
 let service = new DemoResourceService();
 let verificationService = new DemoVerificationService();
+let chatService = new DemoChatService();
 const extractor = new DemoExtractionAdapter();
 const assistant = new DemoAssistantAdapter();
+const geminiAssistant = new GeminiAssistantAdapter();
 const root = document.querySelector('#view-root');
 const modalRoot = document.querySelector('#modal-root');
 const toastRegion = document.querySelector('#toast-region');
 const salesService = new DemoSalesService();
-const names = { home: 'Home', pricing: 'Membership pricing', sales: 'Sales & partnerships', about: 'About us', 'why-us': 'Why Refound', quality: 'Quality & standards', faq: 'FAQs', terms: 'Terms & conditions', privacy: 'Privacy policy', copyright: 'Copyright & use', contact: 'Contact us', login: 'Sign in', signup: 'Join Refound', verification: 'Organization verification', assistant: 'Refound assistant', overview: 'Overview', surplus: 'Surplus listings', needs: 'Community needs', 'my-needs': 'My requests', matches: 'Smart matches', cart: 'Resource basket', messages: 'Order messages', transfers: 'Orders & delivery', reports: 'Reports', impact: 'Your impact', 'admin-verifications': 'Verification queue', 'admin-organizations': 'Partner organizations', 'admin-sales-leads': 'Sales enquiries' };
+const names = { home: 'Home', pricing: 'Membership pricing', sales: 'Sales & partnerships', newsletter: 'Newsletter', about: 'About us', 'why-us': 'Why Refound', quality: 'Quality & standards', faq: 'FAQs', terms: 'Terms & conditions', privacy: 'Privacy policy', copyright: 'Copyright & use', contact: 'Contact us', login: 'Sign in', signup: 'Join Refound', verification: 'Organization verification', assistant: 'Refound assistant', overview: 'Overview', surplus: 'Surplus listings', needs: 'Community needs', 'my-needs': 'My requests', matches: 'Smart matches', cart: 'Resource basket', payments: 'Payments', notifications: 'Notifications', chat: 'Partner chat', messages: 'Order messages', transfers: 'Orders & delivery', reports: 'Reports', impact: 'Your impact', 'admin-verifications': 'Verification queue', 'admin-organizations': 'Verification & listings report', 'admin-sales-leads': 'Sales enquiries' };
 const portalMenus = {
-  company: [['overview', 'Overview', '▦'], ['surplus', 'My surplus', '↗'], ['needs', 'Community needs', '♡'], ['matches', 'Smart matches', '⤳'], ['messages', 'Order messages', '✉'], ['transfers', 'Orders & delivery', '⇄'], ['reports', 'Reports', '▤'], ['impact', 'My impact', '◷'], ['verification', 'Organization status', '✓'], ['assistant', 'AI assistant', '✳']],
-  ngo: [['overview', 'Overview', '▦'], ['my-needs', 'My requests', '♡'], ['matches', 'Browse resources', '⤳'], ['cart', 'Resource basket', '▣'], ['messages', 'Order messages', '✉'], ['transfers', 'Orders & delivery', '⇄'], ['reports', 'Reports', '▤'], ['impact', 'Community impact', '◷'], ['verification', 'Organization status', '✓'], ['assistant', 'AI assistant', '✳']],
-  admin: [['overview', 'Admin overview', '▦'], ['admin-verifications', 'Review applications', '✓'], ['admin-organizations', 'Organizations', '♧'], ['admin-sales-leads', 'Membership enquiries', '◇'], ['surplus', 'All surplus', '↗'], ['needs', 'Community needs', '♡'], ['matches', 'All matches', '⤳'], ['messages', 'Order messages', '✉'], ['cart', 'Demo basket', '▣'], ['transfers', 'All orders & delivery', '⇄'], ['reports', 'Network reports', '▤'], ['impact', 'Impact reports', '◷'], ['assistant', 'AI assistant', '✳']],
+  company: [['overview', 'Overview', '▦'], ['surplus', 'My surplus', '↗'], ['needs', 'Community needs', '♡'], ['matches', 'Smart matches', '⤳'], ['chat', 'Partner chat', '✉'], ['messages', 'Order messages', '☷'], ['transfers', 'Orders & delivery', '⇄'], ['notifications', 'Notifications', '♧'], ['reports', 'Reports', '▤'], ['impact', 'My impact', '◷'], ['verification', 'Organization status', '✓'], ['assistant', 'AI assistant', '✳']],
+  ngo: [['overview', 'Overview', '▦'], ['my-needs', 'My requests', '♡'], ['matches', 'Browse resources', '⤳'], ['cart', 'Resource basket', '▣'], ['payments', 'Payments', '＄'], ['chat', 'Partner chat', '✉'], ['messages', 'Order messages', '☷'], ['transfers', 'Orders & delivery', '⇄'], ['notifications', 'Notifications', '♧'], ['reports', 'Reports', '▤'], ['impact', 'Community impact', '◷'], ['verification', 'Organization status', '✓'], ['assistant', 'AI assistant', '✳']],
+  admin: [['overview', 'Admin overview', '▦'], ['admin-verifications', 'Review applications', '✓'], ['admin-organizations', 'Verification report', '♧'], ['admin-sales-leads', 'Membership enquiries', '◇'], ['surplus', 'All surplus', '↗'], ['needs', 'Community needs', '♡'], ['matches', 'All matches', '⤳'], ['messages', 'Order messages', '✉'], ['transfers', 'Handoff records', '⇄'], ['notifications', 'Notifications', '♧'], ['reports', 'Network reports', '▤'], ['impact', 'Impact reports', '◷'], ['assistant', 'AI assistant', '✳']],
 };
-const publicViews = new Set(['home', 'pricing', 'sales', 'about', 'why-us', 'quality', 'faq', 'terms', 'privacy', 'copyright', 'contact', 'login', 'signup', 'verification', 'assistant']);
-let session = (() => {
-  try {
-    const saved = JSON.parse(sessionStorage.getItem('refound-demo-session') ?? 'null');
-    return saved && ['company', 'ngo', 'admin'].includes(saved.role) && typeof saved.name === 'string' && typeof saved.email === 'string' ? saved : null;
-  }
-  catch (error) {
-    console.error('Unable to load the demo session.', error);
-    return null;
-  }
-})();
-let activeView = session ? 'overview' : 'home';
+const publicViews = new Set(['home', 'pricing', 'sales', 'newsletter', 'about', 'why-us', 'quality', 'faq', 'terms', 'privacy', 'copyright', 'contact', 'login', 'signup', 'verification', 'assistant']);
+let session = null;
+let activeView = 'home';
 let verificationRole = 'company';
 let filter = 'All';
 let query = '';
 let assistantMessages = [];
 let reportRange = '30d';
 let selectedConversation = '';
+let selectedChatId = '';
 let liveMode = false;
 let liveLoginPath = '/api/session';
+let stripeSecretConfigured = false;
+let stripeConfigured = false;
+let geminiConfigured = false;
+let newsletterConfigured = false;
+let notifications = [];
 
 const icon = (name) => ({ Produce: '❋', Bakery: '▤', 'Prepared meals': '◒', Dairy: '◌', 'Medical equipment': '✚', 'Study resources': '▣', 'Other essentials': '↗', Other: '✳', 'First-aid kits': '✚', Textbooks: '▤', 'School supplies': '✎', 'Computers & calculators': '▣', Clothing: '♡' })[name] ?? '✳';
 const resourceTypeOf = (item) => item.resourceType ?? 'Food';
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const shortDate = (value) => new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: 'numeric' }).format(new Date(value));
+const localDateTime = (value) => {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+};
 const todayLabel = () => new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date()).toUpperCase();
 const formatDue = (value) => {
   const hours = Math.ceil((new Date(value).getTime() - Date.now()) / 3_600_000);
@@ -53,7 +56,25 @@ const relativeTime = (value) => {
   return hours < 1 ? 'Just now' : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 };
 const currency = (value) => new Intl.NumberFormat('en-US').format(value);
-const getData = async () => Promise.all([service.getSurplus(), service.getNeeds(), service.getTransfers(), service.getMetrics()]);
+const getData = async () => {
+  const [surplus, needs, transfers, metrics] = await Promise.all([service.getSurplus(), service.getNeeds(), service.getTransfers(), service.getMetrics()]);
+  if (!liveMode && session && session.role !== 'admin') {
+    const applications = await verificationService.getApplications();
+    const verified = applications.filter((application) => application.status === 'approved');
+    const belongsToVerified = (record, idField, nameField) => verified.some((application) => (
+      record[idField] != null
+        ? String(record[idField]) === String(application.id)
+        : record[nameField] === application.organizationName
+    ));
+    return [
+      surplus.filter((item) => belongsToVerified(item, 'donorId', 'donor')),
+      needs.filter((need) => belongsToVerified(need, 'organizationId', 'organization')),
+      transfers,
+      metrics,
+    ];
+  }
+  return [surplus, needs, transfers, metrics];
+};
 const isVerified = async () => {
   if (!session || !['company', 'ngo'].includes(session.role)) return false;
   const own = (await verificationService.getApplications()).find((application) => application.email === session.email);
@@ -81,7 +102,7 @@ function surplusCard(item) {
     <div class="listing-icon ${categoryColors(resourceTypeOf(item))}">${icon(resourceTypeOf(item))}</div>
     <div class="listing-main"><div class="card-topline"><span class="category-tag ${categoryColors(resourceTypeOf(item))}">${escapeHtml(resourceTypeOf(item))}</span><span class="category-tag ${categoryColors(item.category)} listing-subcategory">${escapeHtml(item.category)}</span>${item.status === 'available' && isUrgent ? '<span class="urgency-tag">● Due soon</span>' : `<span class="status-dot ${item.status}">${item.status === 'available' ? 'Available' : item.status}</span>`}</div>
       <h3>${escapeHtml(item.title)}</h3><p class="muted">${escapeHtml(item.donor ?? 'Refound partner')} <span class="middot">·</span> ${escapeHtml(item.location)}</p>
-      <div class="listing-meta"><strong>${item.quantity} ${escapeHtml(item.unit)} available</strong><span class="listing-price">${item.priceAED > 0 ? `AED ${Number(item.priceAED).toFixed(2)} / ${escapeHtml(item.unit)}` : 'Free'}</span></div><div class="item-order-by">Company order-by: ${formatExpiry(item.availableUntil)}</div>${item.expiresAt ? `<div class="item-expiry">Package/device use-by: ${new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(item.expiresAt))}</div>` : ''}${item.condition ? `<div class="resource-condition">${escapeHtml(item.condition)}</div>` : ''}
+      <div class="listing-meta"><strong>${item.quantity} ${escapeHtml(item.unit)} available</strong><span class="listing-price">${item.priceAED > 0 ? `AED ${Number(item.priceAED).toFixed(2)} / ${escapeHtml(item.unit)}` : 'Free'}</span></div><div class="item-order-by">Company order-by: ${formatExpiry(item.availableUntil)}</div>${item.expiresAt ? `<div class="item-expiry">Package/device use-by: ${new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(item.expiresAt))}</div>` : ''}${item.condition ? `<div class="resource-condition">${escapeHtml(item.condition)}</div>` : ''}${session?.role === 'company' && item.donor === session.name ? `<button class="listing-contact" data-action="edit-listing" data-id="${escapeHtml(item.id)}">Edit listing</button>` : ''}${session?.role === 'ngo' ? `<button class="listing-contact" data-action="chat-organization" data-id="${escapeHtml(item.donorId ?? '')}" data-name="${escapeHtml(item.donor ?? '')}">Message business ↗</button>` : ''}
     </div>
     <button class="more-button" aria-label="More about ${escapeHtml(item.title)}" data-action="surplus-detail" data-id="${item.id}">↗</button>
   </article>`;
@@ -90,13 +111,13 @@ function surplusCard(item) {
 function needCard(need) {
   return `<article class="need-card"><div class="need-card-top"><span class="urgency-pill ${need.urgency}"><i></i>${need.urgency} need</span><span class="need-time">${formatDue(need.neededBy)}</span></div>
     <h3>${escapeHtml(need.organization)}</h3><p class="muted">${escapeHtml(need.location)} <span class="middot">·</span> Contact: ${escapeHtml(need.contact)}</p>
-    <div class="need-request"><span class="category-tag ${categoryColors(resourceTypeOf(need))}">${escapeHtml(resourceTypeOf(need))} · ${escapeHtml(need.category)}</span><strong>${need.quantity} ${escapeHtml(need.unit)}</strong></div><p class="need-note">“${escapeHtml(need.note)}”</p><div class="need-specs"><span>Budget: ${need.maxPriceAED > 0 ? `up to AED ${Number(need.maxPriceAED).toFixed(2)} / unit` : 'donated resources only'}</span>${need.expiresAt ? `<span>Item must remain valid through ${shortDate(need.expiresAt)}</span>` : ''}${need.preferredCondition ? `<span>Condition: ${escapeHtml(need.preferredCondition)}</span>` : ''}${need.specifications ? `<span>${escapeHtml(need.specifications)}</span>` : ''}${need.storageInstructions ? `<span>Receiving: ${escapeHtml(need.storageInstructions)}</span>` : ''}</div></article>`;
+    <div class="need-request"><span class="category-tag ${categoryColors(resourceTypeOf(need))}">${escapeHtml(resourceTypeOf(need))} · ${escapeHtml(need.category)}</span><strong>${need.quantity} ${escapeHtml(need.unit)}</strong></div><p class="need-note">“${escapeHtml(need.note)}”</p><div class="need-specs"><span>Budget: ${need.maxPriceAED > 0 ? `up to AED ${Number(need.maxPriceAED).toFixed(2)} / unit` : 'donated resources only'}</span>${need.expiresAt ? `<span>Item must remain valid through ${shortDate(need.expiresAt)}</span>` : ''}${need.preferredCondition ? `<span>Condition: ${escapeHtml(need.preferredCondition)}</span>` : ''}${need.specifications ? `<span>${escapeHtml(need.specifications)}</span>` : ''}${need.storageInstructions ? `<span>Receiving: ${escapeHtml(need.storageInstructions)}</span>` : ''}</div>${session?.role === 'company' ? `<button class="listing-contact" data-action="chat-organization" data-id="${escapeHtml(need.organizationId ?? '')}" data-name="${escapeHtml(need.organization)}">Message NGO ↗</button>` : ''}</article>`;
 }
 
 function transferRow(transfer, surplus, need, compact = false) {
   const status = transfer.status;
-  const isSeller = session?.role === 'admin' || (session?.role === 'company' && surplus?.donor === session.name);
-  const isBuyer = session?.role === 'admin' || (session?.role === 'ngo' && need?.organization === session.name);
+  const isSeller = session?.role === 'company' && surplus?.donor === session.name;
+  const isBuyer = session?.role === 'ngo' && need?.organization === session.name;
   const canAdvance = status === 'pending' ? isSeller : status === 'approved' ? isSeller : status === 'in_transit' ? isBuyer : false;
   const action = status === 'delivered'
     ? '<span class="done-mark">✓ Received</span>'
@@ -259,7 +280,7 @@ function renderNgoOverview(surplus, needs, transfers, metrics, verified) {
 function renderAdminOverview(applications, transfers, metrics) {
   const pending = applications.filter((item) => item.status === 'pending').length;
   return `${pageHeading('REFOUND OPERATIONS', 'Admin overview <span class="heading-wave">✳</span>', 'Review partner applications and monitor marketplace operations.', '<button class="button button-primary" data-view="admin-verifications">Review applications <span>→</span></button>')}
-    ${liveMode ? '' : '<div class="admin-demo-alert">⚠ Prototype only — this role selector is not administrator authentication or an access-control boundary.</div>'}
+    ${liveMode ? '' : '<div class="admin-demo-alert">⚠ Local trial administrator credentials are published for testing only. Do not deploy trial mode or reuse these passwords for a real admin account.</div>'}
     <section class="metric-grid">${metricCard('Pending reviews', pending, 'Organization applications', '◷', 'yellow')}${metricCard(liveMode ? 'Verified partners' : 'Verified demo partners', applications.filter((item) => item.status === 'approved').length, 'Business &amp; community', '✓')}${metricCard('Active handoffs', transfers.filter((item) => ['pending', 'approved', 'in_transit'].includes(item.status)).length, 'Require partner coordination', '⇄', 'lavender')}${metricCard('Meals rescued', currency(metrics.mealsRescued), liveMode ? 'Network total' : 'Demo network lifetime', '↗')}</section>
     <section class="admin-shortcuts"><button data-view="admin-verifications"><span>01</span><strong>Review organization applications</strong><small>Check details, then approve or decline.</small><i>→</i></button><button data-view="admin-organizations"><span>02</span><strong>View partner organizations</strong><small>${liveMode ? 'See Odoo verification statuses.' : 'See demo verification statuses.'}</small><i>→</i></button><button data-view="transfers"><span>03</span><strong>Monitor handoffs</strong><small>Follow each handoff to delivery.</small><i>→</i></button></section>`;
 }
@@ -295,7 +316,7 @@ function updateNeedTypeControls(resourceType) {
   form.elements.namedItem('category').innerHTML = categories.map((item) => `<option>${escapeHtml(item)}</option>`).join('');
 }
 
-async function openAddToCartModal(surplusId, needId) {
+async function addMatchedResourceToBasket(surplusId, needId) {
   if (session?.role !== 'ngo') {
     toast('A verified NGO requestor adds matched resources to its basket. Companies publish stock and fulfil paid orders.');
     return;
@@ -312,20 +333,11 @@ async function openAddToCartModal(surplusId, needId) {
   const need = ownNeeds.find((record) => record.id === needId) ?? ownNeeds.find((record) => scoreMatch(item, record));
   const match = item && need ? scoreMatch(item, need) : null;
   if (!item || !need || !match) return toast('This resource no longer meets your request, expiry, or price budget.');
-  openModal(`<button class="modal-close" data-action="close-modal" aria-label="Close">×</button><div class="eyebrow">REVIEW REQUEST &amp; COMPANY OFFER</div><h2>Add to your resource basket</h2><p class="modal-intro">Refound records the order and product payment. The company will contact you to agree delivery, any transport charge, and the arrival time.</p><div class="order-review-card"><div><span>RESOURCE</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(resourceTypeOf(item))} · ${escapeHtml(item.category)}</small></div><div><span>CONDITION / SPECS</span><strong>${escapeHtml(item.condition || 'Ask the company')}</strong><small>${escapeHtml(item.specifications || item.notes || 'Confirm exact item details with the company.')}</small></div><div><span>NGO REQUIREMENT</span><strong>${escapeHtml(need.organization)} · ${escapeHtml(need.quantity)} ${escapeHtml(need.unit)}</strong><small>${escapeHtml(need.specifications || need.note)}</small></div><div><span>EXPIRY / STORAGE</span><strong>${item.expiresAt ? new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(item.expiresAt)) : 'No item expiry declared'}</strong><small>${escapeHtml(item.storageInstructions || 'Ask the company for handling requirements.')}</small></div></div><div class="order-price-line"><span>Resource price</span><strong>${item.priceAED > 0 ? `AED ${Number(item.priceAED).toFixed(2)} / ${escapeHtml(item.unit)}` : 'Free donation'}</strong></div><div class="order-price-line"><span>Delivery logistics</span><strong>Agreed directly with company</strong></div><form id="add-to-cart-form"><label class="field-label" for="cart-quantity">Quantity · ${escapeHtml(item.unit)} (budget max AED ${Number(need.maxPriceAED ?? 0).toFixed(2)} per unit)</label><input id="cart-quantity" name="quantity" type="number" min="1" max="${match.quantity}" value="${match.quantity}" required /><p class="form-help">Available now: ${item.quantity} ${escapeHtml(item.unit)}. Request remaining: ${need.quantity} ${escapeHtml(need.unit)}. Payment at checkout covers the resource only; delivery is coordinated by the selling company.</p><button type="submit" class="button button-primary modal-main-action">Add to basket <span>→</span></button></form>`);
-  modalRoot.querySelector('#add-to-cart-form')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const amount = Number(new FormData(event.currentTarget).get('quantity'));
-    try {
-      await service.addToCart(item.id, need.id, amount, session.name);
-      closeModal();
-      toast('Added to your basket. Review the payment and order details before checkout.');
-      activeView = 'cart';
-      await render();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : 'Unable to add this item to your basket.');
-    }
-  });
+  const cart = await service.addToCart(item.id, need.id, 1, session.name);
+  const line = cart.find((entry) => entry.surplusId === item.id && entry.needId === need.id && entry.buyerOrganization === session.name);
+  activeView = 'cart';
+  await render();
+  toast(`Added 1 ${item.unit} of ${item.title} to your basket${line ? ` (${line.quantity} total)` : ''}.`);
 }
 
 function renderCart(surplus, needs) {
@@ -338,12 +350,14 @@ function renderCart(surplus, needs) {
   const itemTotal = lines.reduce((sum, { line, item }) => sum + Number(item.priceAED ?? 0) * line.quantity, 0);
   const orderTotal = Math.round(itemTotal * 100) / 100;
   const verified = session?.role === 'ngo';
-  const livePaymentBlocked = liveMode && orderTotal > 0;
+  const livePaymentBlocked = orderTotal > 0 && (liveMode || stripeSecretConfigured) && !stripeConfigured;
   const paymentPanel = liveMode
-    ? `<p class="payment-disclaimer">${orderTotal ? 'Live Odoo payment is not enabled. Paid orders are blocked until the organization activates a payment provider.' : 'No resource charge is due. A free order will be recorded in Odoo; the company will arrange delivery.'}</p>`
-    : `<label class="cart-payment-choice"><span>Payment method · demo only</span><select id="cart-payment-method"><option value="demo-card">Card payment simulation</option><option value="demo-bank-transfer">Bank transfer simulation</option></select></label><p class="payment-disclaimer">No real payment or gateway request is made. Product payments are simulated in local demo storage. Delivery is not included and is arranged by the company with your organization.</p>`;
+    ? `<p class="payment-disclaimer">${orderTotal ? stripeConfigured ? 'You will continue to Stripe Checkout. Card details are entered only on Stripe’s hosted payment page; a verified webhook confirms payment.' : 'Stripe is not configured. Paid checkout is disabled until server-side Stripe secret and webhook signing keys are set.' : 'No resource charge is due. A free order will be recorded in Odoo; the company will arrange delivery.'}</p>`
+    : stripeSecretConfigured
+      ? `<p class="payment-disclaimer">${stripeConfigured ? 'Stripe test mode is ready. Checkout uses Stripe’s hosted payment page; verified webhooks update this SQLite trial order. Test cards only—no real funds move.' : 'The Stripe test key is stored server-side. Paid checkout stays disabled until the webhook signing secret is configured.'}</p>`
+      : `<label class="cart-payment-choice"><span>Payment method · demo only</span><select id="cart-payment-method"><option value="demo-card">Card payment simulation</option><option value="demo-bank-transfer">Bank transfer simulation</option></select></label><p class="payment-disclaimer">No real payment or gateway request is made. Product payments are simulated in local demo storage. Delivery is not included and is arranged by the company with your organization.</p>`;
   return `${pageHeading('NGO RESOURCE BASKET', 'Review your order', 'Check item detail, quantity, request and item price before confirming the order.', '')}${!verified ? '<div class="verification-banner"><span>◷</span><div><strong>NGO checkout requires organization verification.</strong><p>A company arranges the delivery after accepting your paid or donation order.</p></div><button class="text-button" data-view="verification">View status →</button></div>' : ''}
-    ${lines.length ? `<div class="cart-layout"><section class="cart-lines">${lines.map(({ line, item, need }) => `<article class="cart-line"><div class="cart-product-icon ${categoryColors(resourceTypeOf(item))}">${icon(resourceTypeOf(item))}</div><div class="cart-product-copy"><span class="category-tag ${categoryColors(resourceTypeOf(item))}">${escapeHtml(resourceTypeOf(item))} · ${escapeHtml(item.category)}</span><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.donor ?? 'Company')} · ${escapeHtml(item.location)}</p><p class="cart-request-context">Fulfils: <strong>${escapeHtml(need.organization)}</strong> · ${escapeHtml(need.specifications || need.note)}</p><div class="cart-detail-tags"><span>Condition: ${escapeHtml(item.condition || 'Confirm with company')}</span>${item.expiresAt ? `<span>Use by: ${new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(item.expiresAt))}</span>` : ''}<span>${escapeHtml(item.storageInstructions || 'Handling: confirm with company')}</span></div></div><div class="cart-line-controls"><strong>${item.priceAED > 0 ? `AED ${(Number(item.priceAED) * line.quantity).toFixed(2)}` : 'Free'}</strong><span>${item.priceAED > 0 ? `AED ${Number(item.priceAED).toFixed(2)} / ${escapeHtml(item.unit)}` : 'No resource charge'}</span><input aria-label="Quantity ${escapeHtml(item.title)}" type="number" min="1" max="${Math.min(item.quantity, need.quantity)}" value="${line.quantity}" data-cart-quantity="${escapeHtml(line.key)}" /><button class="text-button" data-action="remove-cart-line" data-key="${escapeHtml(line.key)}">Remove</button></div></article>`).join('')}</section><aside class="cart-summary"><div class="section-label">ORDER SUMMARY</div><h2>One clear total.</h2><div class="order-price-line"><span>Resources (${lines.length} line${lines.length === 1 ? '' : 's'})</span><strong>${orderTotal ? `AED ${orderTotal.toFixed(2)}` : 'Free'}</strong></div><div class="order-price-line"><span>Delivery</span><strong>Agreed directly with company</strong></div><div class="cart-summary-total"><span>Product total</span><strong>AED ${orderTotal.toFixed(2)}</strong></div>${paymentPanel}<button class="button button-primary button-large cart-checkout" data-action="checkout" ${verified && !livePaymentBlocked ? '' : 'disabled'}>${livePaymentBlocked ? 'Odoo payment provider required' : 'Confirm & place order'} <span>→</span></button><button class="text-button cart-continue" data-view="matches">← Back to matched resources</button></aside></div>` : '<div class="empty-panel">Your basket is empty. Open Smart matches, choose your requirement, then add a compatible company resource.<br /><br /><button class="button button-primary" data-view="matches">Browse matched resources →</button></div>'}`;
+    ${lines.length ? `<div class="cart-layout"><section class="cart-lines">${lines.map(({ line, item, need }) => `<article class="cart-line"><div class="cart-product-icon ${categoryColors(resourceTypeOf(item))}">${icon(resourceTypeOf(item))}</div><div class="cart-product-copy"><span class="category-tag ${categoryColors(resourceTypeOf(item))}">${escapeHtml(resourceTypeOf(item))} · ${escapeHtml(item.category)}</span><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.donor ?? 'Company')} · ${escapeHtml(item.location)}</p><p class="cart-request-context">Fulfils: <strong>${escapeHtml(need.organization)}</strong> · ${escapeHtml(need.specifications || need.note)}</p><div class="cart-detail-tags"><span>Condition: ${escapeHtml(item.condition || 'Confirm with company')}</span>${item.expiresAt ? `<span>Use by: ${new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(item.expiresAt))}</span>` : ''}<span>${escapeHtml(item.storageInstructions || 'Handling: confirm with company')}</span></div></div><div class="cart-line-controls"><strong>${item.priceAED > 0 ? `AED ${(Number(item.priceAED) * line.quantity).toFixed(2)}` : 'Free'}</strong><span>${item.priceAED > 0 ? `AED ${Number(item.priceAED).toFixed(2)} / ${escapeHtml(item.unit)}` : 'No resource charge'}</span><input aria-label="Quantity ${escapeHtml(item.title)}" type="number" min="1" max="${Math.min(item.quantity, need.quantity)}" value="${line.quantity}" data-cart-quantity="${escapeHtml(line.key)}" /><button class="text-button" data-action="remove-cart-line" data-key="${escapeHtml(line.key)}">Remove</button></div></article>`).join('')}</section><aside class="cart-summary"><div class="section-label">ORDER SUMMARY</div><h2>One clear total.</h2><div class="order-price-line"><span>Resources (${lines.length} line${lines.length === 1 ? '' : 's'})</span><strong>${orderTotal ? `AED ${orderTotal.toFixed(2)}` : 'Free'}</strong></div><div class="order-price-line"><span>Delivery</span><strong>Agreed directly with company</strong></div><div class="cart-summary-total"><span>Product total</span><strong>AED ${orderTotal.toFixed(2)}</strong></div>${paymentPanel}<button class="button button-primary button-large cart-checkout" data-action="checkout" ${verified && !livePaymentBlocked ? '' : 'disabled'}>${livePaymentBlocked ? 'Stripe setup required' : stripeConfigured && orderTotal > 0 ? `Pay securely with Stripe${liveMode ? '' : ' test mode'}` : 'Confirm & place order'} <span>→</span></button><button class="text-button cart-continue" data-view="matches">← Back to matched resources</button></aside></div>` : '<div class="empty-panel">Your basket is empty. Open Smart matches, choose your requirement, then add a compatible company resource.<br /><br /><button class="button button-primary" data-view="matches">Browse matched resources →</button></div>'}`;
 }
 
 async function renderMessages(surplus, needs, transfers) {
@@ -359,11 +373,63 @@ async function renderMessages(surplus, needs, transfers) {
     ${conversations.length ? `<div class="message-layout"><aside class="message-inbox"><div class="section-label">YOUR ORDER THREADS</div>${conversations.map((thread) => `<button class="message-thread-button ${thread.id === selectedConversation ? 'active' : ''}" data-action="select-conversation" data-id="${escapeHtml(thread.id)}"><strong>${escapeHtml(thread.need?.organization ?? 'Community partner')}</strong><small>${escapeHtml(thread.surplus?.title ?? 'Resource order')}</small><span>${escapeHtml(statusLabels[thread.transfer.status])}</span></button>`).join('')}</aside><section class="message-panel"><div class="message-panel-head"><div><div class="section-label">${escapeHtml(statusLabels[selected.transfer.status])}</div><h2>${escapeHtml(selected.surplus?.title ?? 'Resource order')}</h2><p>${escapeHtml(selected.need?.organization ?? 'Receiving organization')} · ${selected.transfer.quantity} ${escapeHtml(selected.surplus?.unit ?? 'items')}</p></div><span class="order-message-partner">${session?.role === 'company' ? escapeHtml(selected.need?.organization ?? 'Partner') : escapeHtml(selected.surplus?.donor ?? 'Company')}</span></div><div class="message-stream">${messages.map((message) => `<article class="message-bubble ${message.senderOrganization === session.name ? 'own' : ''}"><strong>${escapeHtml(message.senderOrganization)}${message.senderRole === 'admin' ? ' · Refound team' : ''}</strong><p>${escapeHtml(message.body)}</p><small>${shortDate(message.createdAt)}</small></article>`).join('') || '<div class="empty-state">Start the conversation. Confirm the product specifics and agree delivery directly with the company.</div>'}</div><form id="order-message-form" class="order-message-form" data-order="${escapeHtml(selected.id)}"><textarea name="message" rows="2" maxlength="1500" required placeholder="Message your order partner…"></textarea><button class="button button-primary">Send <span>→</span></button></form></section></div>` : '<div class="empty-panel">Order conversations appear here after an NGO places an order. Browse requests and matching resources to get started.</div>'}`;
 }
 
+async function renderPartnerChat(applications) {
+  if (!await isVerified()) {
+    return `${pageHeading('VERIFIED PARTNERS ONLY', 'Partner chat', 'Connect directly with verified organizations before or after you find a match.', '')}<div class="verification-banner"><span>◷</span><div><strong>Complete organization verification to use partner chat.</strong><p>Only approved businesses and NGOs can find partners or send messages.</p></div><button class="text-button" data-view="verification">View status →</button></div>`;
+  }
+  const [organizations, conversations] = await Promise.all([
+    chatService.getOrganizations(applications, session),
+    chatService.getConversations(applications, session),
+  ]);
+  if (!conversations.some((item) => item.id === selectedChatId)) selectedChatId = conversations[0]?.id ?? '';
+  const selected = conversations.find((item) => item.id === selectedChatId);
+  const messages = selected ? await chatService.getMessages(selected.id, applications, session) : [];
+  const startedPartnerIds = new Set(conversations.map((item) => String(item.peerOrganizationId)));
+  const availableOrganizations = organizations.filter((item) => !startedPartnerIds.has(String(item.id)));
+  return `${pageHeading('VERIFIED PARTNERS, ONE CONVERSATION', 'Partner chat', 'Ask questions and coordinate directly with verified businesses and community organizations—even before placing an order.', '')}
+    <div class="chat-layout"><aside class="chat-inbox"><div class="chat-inbox-section"><div class="section-header"><div><div class="eyebrow">YOUR CONVERSATIONS</div><h2>${conversations.length} partner chats</h2></div></div>${conversations.map((item) => `<button class="chat-thread ${item.id === selectedChatId ? 'active' : ''}" data-action="select-chat" data-id="${escapeHtml(item.id)}"><span class="organization-type-icon ${item.peerRole === 'ngo' ? 'ngo' : ''}">${item.peerRole === 'ngo' ? '♡' : '↗'}</span><span><strong>${escapeHtml(item.peerOrganizationName)}</strong><small>${escapeHtml(item.lastMessage || 'Start a conversation')}</small></span><i>›</i></button>`).join('') || '<p class="empty-state">Your direct partner conversations will appear here.</p>'}</div>
+      <div class="chat-inbox-section discover-partners"><div class="section-header"><div><div class="eyebrow">DISCOVER PARTNERS</div><h2>${organizations.length} verified organizations</h2></div></div>${availableOrganizations.map((item) => `<button class="chat-partner" data-action="start-chat" data-id="${escapeHtml(item.id)}"><span class="organization-type-icon ${item.role === 'ngo' ? 'ngo' : ''}">${item.role === 'ngo' ? '♡' : '↗'}</span><span><strong>${escapeHtml(item.name)}</strong><small>${item.role === 'ngo' ? 'Community organization' : 'Business partner'}${item.location ? ` · ${escapeHtml(item.location)}` : ''}</small></span><i>＋</i></button>`).join('') || '<p class="empty-state">You have started conversations with all currently verified partner organizations.</p>'}</div></aside>
+      <section class="chat-panel">${selected ? `<div class="chat-panel-head"><span class="organization-type-icon ${selected.peerRole === 'ngo' ? 'ngo' : ''}">${selected.peerRole === 'ngo' ? '♡' : '↗'}</span><div><div class="section-label">VERIFIED ${selected.peerRole === 'ngo' ? 'COMMUNITY ORGANIZATION' : 'BUSINESS PARTNER'}</div><h2>${escapeHtml(selected.peerOrganizationName)}</h2></div><span class="verified-badge">Verified ✓</span></div><div class="chat-stream">${messages.map((message) => `<article class="chat-bubble ${String(message.senderOrganizationId) === String(session.organizationId) || message.senderOrganization === session.name ? 'own' : ''}"><strong>${escapeHtml(message.senderOrganization)}${message.senderRole === 'admin' ? ' · Refound team' : ''}</strong><p>${escapeHtml(message.body)}</p><small>${message.createdAt ? shortDate(message.createdAt) : 'Just now'}</small></article>`).join('') || '<div class="chat-empty"><span>✳</span><strong>Start the conversation</strong><p>Ask about availability, requirements, handling, or a possible match. Keep personal and sensitive information out of chat.</p></div>'}</div><form id="chat-message-form" class="chat-compose" data-chat="${escapeHtml(selected.id)}"><label class="visually-hidden" for="chat-message-input">Message ${escapeHtml(selected.peerOrganizationName)}</label><textarea id="chat-message-input" name="message" rows="2" maxlength="1500" placeholder="Write a message to ${escapeHtml(selected.peerOrganizationName)}…" required></textarea><button class="button button-primary">Send message <span>→</span></button></form><small class="chat-safety-note">Partner chat is for coordination. Never send identity documents, passwords, payment details, or sensitive beneficiary information.</small>` : `<div class="chat-empty chat-no-selection"><span>✉</span><strong>Make a useful connection.</strong><p>Choose a verified partner on the left to start a direct conversation. Threads are private to the participating organizations.</p></div>`}</section></div>`;
+}
+
+async function fetchNotifications() {
+  if (!session) return [];
+  if (liveMode) {
+    return [{
+      id: 'live-trial-update',
+      title: 'Refound workspace is connected',
+      body: 'This sample notification confirms the workspace notification tab is available.',
+      createdAt: new Date().toISOString(),
+      readAt: '',
+    }];
+  }
+  const response = await fetch('/api/notifications', { credentials: 'same-origin', cache: 'no-store' });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `Unable to load notifications (${response.status}).`);
+  if (!Array.isArray(payload)) throw new Error('The notifications response is invalid.');
+  return payload;
+}
+
+function renderNotifications() {
+  return `${pageHeading('UPDATES FOR YOUR WORKSPACE', 'Notifications', 'Trial updates help each role see changes that may need attention.', '')}
+    <section class="notification-list">${notifications.map((item) => `<article class="notification-card ${item.readAt ? 'read' : 'unread'}"><span class="notification-mark">${item.readAt ? '✓' : '✳'}</span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p><small>${item.createdAt ? shortDate(item.createdAt) : 'Just now'} · ${item.readAt ? 'Read' : 'Unread'}</small></div>${item.readAt || liveMode ? '' : `<button class="button button-outline button-small" data-action="read-notification" data-id="${escapeHtml(item.id)}">Mark read</button>`}</article>`).join('') || '<div class="empty-panel">You’re all caught up. New marketplace and account updates will appear here.</div>'}</section>
+    <p class="payment-disclaimer">These notifications are seeded trial examples. The current local build does not send email or real-time alerts.</p>`;
+}
+
+function renderPayments(transfers) {
+  const orders = transfers;
+  return `${pageHeading('SECURE CHECKOUT', 'Payments', 'Review resource charges and payment status. Delivery is arranged separately by the company.', '<button class="button button-primary" data-view="cart">Open resource basket →</button>')}
+    <div class="payment-disclaimer">${stripeConfigured ? `Stripe Checkout is configured${liveMode ? '' : ' in test mode'} on the server. Card details are entered only on Stripe’s hosted payment page; ${liveMode ? 'verified webhooks update Odoo.' : 'verified webhooks update the local SQLite trial database. Test cards only.'}` : stripeSecretConfigured ? 'The Stripe test key is configured, but paid checkout stays disabled until the webhook signing secret is set in the private server environment.' : 'Stripe is not configured on this server yet. Checkout stays disabled until the server-side key and webhook secret are configured.'}</div>
+    <section class="panel payment-history"><div class="section-header"><div><div class="eyebrow">ORDER PAYMENT HISTORY</div><h2>${orders.length} order${orders.length === 1 ? '' : 's'}</h2></div></div>${orders.map((order) => `<div class="status-summary-row"><span>${escapeHtml(order.orderId ?? order.id)} · ${escapeHtml(statusLabels[order.status] ?? order.status)}</span><strong>${Number(order.paymentAmountAED ?? 0) ? `AED ${Number(order.paymentAmountAED).toFixed(2)} · ${escapeHtml(order.paymentStatus ?? 'pending')}` : 'No charge'}</strong></div>`).join('') || '<p class="empty-state">Your resource orders and payment outcomes will appear here.</p>'}</section>`;
+}
+
 async function render() {
   if (!root) return;
+  if (session && !liveMode) await service.flushPersistence();
   document.title = `${names[activeView] ?? 'Refound'} — Refound`;
   const applications = session ? await verificationService.getApplications() : [];
   const leads = session?.role === 'admin' && !liveMode ? await salesService.getLeads() : [];
+  notifications = session ? await fetchNotifications() : [];
   const publicHeader = document.querySelector('#public-header');
   if (!session || publicViews.has(activeView)) {
     document.body.classList.add('public-mode');
@@ -371,7 +437,7 @@ async function render() {
     document.body.removeAttribute('data-role');
     publicHeader.innerHTML = renderPublicHeader(activeView, session);
     document.querySelector('#workspace-nav').innerHTML = '';
-    root.innerHTML = renderPublicPage(activeView, { applications, session, verificationRole, liveMode, loginPath: liveLoginPath });
+    root.innerHTML = renderPublicPage(activeView, { applications, session, verificationRole, liveMode, loginPath: liveLoginPath, newsletterConfigured });
     return;
   }
   const menu = portalMenus[session.role];
@@ -380,8 +446,8 @@ async function render() {
   document.body.dataset.role = session.role;
   publicHeader.innerHTML = '';
   const nav = document.querySelector('#workspace-nav');
-  const visibleMenu = liveMode ? menu.filter(([view]) => !['admin-sales-leads', 'cart'].includes(view)) : menu;
-  nav.innerHTML = visibleMenu.map(([view, label, glyph]) => `<button class="nav-item ${activeView === view ? 'active' : ''}" data-view="${view}"><span class="nav-icon">${glyph}</span>${label}${view === 'surplus' ? '<span class="nav-count" id="surplus-count"></span>' : ''}${view === 'my-needs' ? '<span class="nav-count" id="my-needs-count"></span>' : ''}${view === 'cart' ? `<span class="nav-count">${service.getCart().filter((line) => line.buyerOrganization === session.name).length || ''}</span>` : ''}${view === 'matches' ? '<span class="nav-count match-count"></span>' : ''}${view === 'transfers' ? '<span class="nav-count transfer-count"></span>' : ''}${view === 'admin-verifications' ? `<span class="nav-count ${applications.filter((item) => item.status === 'pending').length ? 'pending-count' : ''}">${applications.filter((item) => item.status === 'pending').length || ''}</span>` : ''}${view === 'admin-sales-leads' && leads.filter((lead) => lead.status === 'new').length ? `<span class="nav-count">${leads.filter((lead) => lead.status === 'new').length}</span>` : ''}</button>`).join('') + '<div class="nav-divider"></div>';
+  const visibleMenu = liveMode ? menu.filter(([view]) => !['admin-sales-leads'].includes(view)) : menu;
+  nav.innerHTML = visibleMenu.map(([view, label, glyph]) => `<button class="nav-item ${activeView === view ? 'active' : ''}" data-view="${view}"><span class="nav-icon">${glyph}</span>${label}${view === 'surplus' ? '<span class="nav-count" id="surplus-count"></span>' : ''}${view === 'my-needs' ? '<span class="nav-count" id="my-needs-count"></span>' : ''}${view === 'cart' ? `<span class="nav-count">${service.getCart().filter((line) => line.buyerOrganization === session.name).length || ''}</span>` : ''}${view === 'matches' ? '<span class="nav-count match-count"></span>' : ''}${view === 'transfers' ? '<span class="nav-count transfer-count"></span>' : ''}${view === 'notifications' && notifications.some((item) => !item.readAt) ? '<span class="nav-count pending-count">!</span>' : ''}${view === 'admin-verifications' ? `<span class="nav-count ${applications.filter((item) => item.status === 'pending').length ? 'pending-count' : ''}">${applications.filter((item) => item.status === 'pending').length || ''}</span>` : ''}${view === 'admin-sales-leads' && leads.filter((lead) => lead.status === 'new').length ? `<span class="nav-count">${leads.filter((lead) => lead.status === 'new').length}</span>` : ''}</button>`).join('') + '<div class="nav-divider"></div>';
   if (session.role === 'admin') {
     nav.innerHTML += '<div class="workspace-label">HELP &amp; INFO</div><button class="nav-item" data-view="faq"><span class="nav-icon">?</span>FAQs</button><button class="nav-item" data-view="pricing"><span class="nav-icon">◇</span>Membership pricing</button><button class="nav-item" data-view="privacy"><span class="nav-icon">◈</span>Privacy policy</button>';
   }
@@ -393,8 +459,9 @@ async function render() {
   document.querySelector('#topbar-avatar').textContent = shortName;
   document.querySelector('#topbar-account').textContent = session.name;
   document.querySelector('#page-breadcrumb').textContent = names[activeView] ?? activeView;
-  document.querySelector('.live-status').innerHTML = liveMode ? '<i></i> Odoo-backed · secured' : '<i></i> Demo · Not connected to Odoo';
+  document.querySelector('.live-status').innerHTML = liveMode ? '<i></i> Odoo-backed · secured' : '<i></i> SQLite trial · no live payments';
   const [surplus, needs, transfers, metrics] = await getData();
+  const organizationReport = session.role === 'admin' ? buildOrganizationVerificationReport(applications, surplus, needs) : null;
   const verified = session.role === 'admin' || await isVerified();
   const renderers = {
     overview: () => session.role === 'admin'
@@ -407,18 +474,21 @@ async function render() {
     'my-needs': () => renderMyNeeds(needs, verified),
     matches: () => renderMatches(surplus, needs),
     cart: () => renderCart(surplus, needs),
+    payments: () => renderPayments(transfers),
+    notifications: () => renderNotifications(),
     messages: () => renderMessages(surplus, needs, transfers),
     transfers: () => renderTransfers(surplus, needs, transfers),
     reports: () => renderReports(surplus, needs, transfers),
     impact: () => renderImpact(metrics, transfers),
     'admin-verifications': () => renderPublicPage('admin-verifications', { applications, liveMode }),
-    'admin-organizations': () => renderPublicPage('admin-organizations', { applications, liveMode }),
+    'admin-organizations': () => renderPublicPage('admin-organizations', { organizationReport, liveMode }),
+    chat: () => renderPartnerChat(applications),
     'admin-sales-leads': () => liveMode ? pageHeading('SALES CRM NOT CONNECTED', 'Sales enquiry inbox', 'Connect your CRM or Odoo lead model before collecting live sales enquiries.') : renderPublicPage('admin-sales-leads', { leads }),
     pricing: () => renderPublicPage('pricing', { session }),
     sales: () => renderPublicPage('sales', { session }),
-    assistant: () => renderPublicPage('assistant', { applications, session, assistantMessages }),
+    assistant: () => renderPublicPage('assistant', { applications, session, assistantMessages, geminiConfigured }),
     faq: () => renderPublicPage('faq'),
-    privacy: () => renderPublicPage('privacy'),
+    privacy: () => renderPublicPage('privacy', { geminiConfigured, newsletterConfigured }),
   };
   root.innerHTML = await (renderers[activeView] ?? renderers.overview)();
   document.querySelectorAll('#workspace-nav .nav-item[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === activeView));
@@ -442,7 +512,19 @@ async function configureBackend() {
     const health = await healthResponse.json();
     if (!healthResponse.ok) throw new Error(health.error || `Refound service returned ${healthResponse.status}.`);
     if (health.mode === 'misconfigured') throw new Error(`Odoo is only partially configured. Add: ${(health.missingSettings ?? []).join(', ')}.`);
+    stripeSecretConfigured = Boolean(health.stripeSecretConfigured);
+    stripeConfigured = Boolean(health.stripeConfigured);
+    geminiConfigured = Boolean(health.aiAssistantConfigured);
+    newsletterConfigured = Boolean(health.newsletterConfigured);
     if (health.mode !== 'odoo') {
+      const sessionResponse = await fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' });
+      if (sessionResponse.ok) {
+        session = await sessionResponse.json();
+        await service.enablePersistence();
+        activeView = 'overview';
+      } else {
+        session = null;
+      }
       await render();
       return;
     }
@@ -450,6 +532,7 @@ async function configureBackend() {
     liveLoginPath = typeof health.loginPath === 'string' ? health.loginPath : '/api/session';
     service = new OdooApiResourceService();
     verificationService = new OdooApiVerificationService();
+    chatService = new OdooApiChatService();
     const sessionResponse = await fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' });
     if (sessionResponse.ok) {
       session = await sessionResponse.json();
@@ -487,7 +570,7 @@ function closeModal() {
   document.body.classList.remove('modal-open');
 }
 
-async function openListingModal() {
+async function openListingModal(existing = null) {
   if (session?.role !== 'company') return toast('Only verified business partners can list surplus resources.');
   if (!await isVerified()) {
     activeView = 'verification';
@@ -495,17 +578,15 @@ async function openListingModal() {
     toast('Organization approval is required before listing surplus.');
     return;
   }
-  openModal(`<button class="modal-close" data-action="close-modal" aria-label="Close">×</button><div class="eyebrow">COMPANY LISTING · DETAILED RESOURCE RECORD</div><h2>List surplus resources</h2><p class="modal-intro">NGOs need enough detail to check suitability. Describe the item, its condition, restrictions, availability, price, and any date that affects safe use.</p>
-    <label class="field-label" for="description-input">Describe your resource</label><textarea id="description-input" class="text-area" placeholder="e.g. 18 sealed first-aid kits, manufacturer expiry in 45 days, kept dry at ambient temperature" autofocus></textarea>
-    <div class="ai-hint"><span>✳</span><span><strong>AI-style draft extraction</strong> suggests resource type, category, quantity, and expiry from your description. Check the source label and correct every field.</span></div>
-    <button class="button button-primary modal-main-action" data-action="extract-details">✳ &nbsp; Organize details</button><div class="modal-or"><span>OR ADD DETAILS MANUALLY</span></div>
+  openModal(`<button class="modal-close" data-action="close-modal" aria-label="Close">×</button><div class="eyebrow">COMPANY LISTING · DETAILED RESOURCE RECORD</div><h2>${existing ? 'Edit surplus listing' : 'List surplus resources'}</h2><p class="modal-intro">NGOs need enough detail to check suitability. Describe the item, its condition, restrictions, availability, price, and any date that affects safe use.</p>
+    ${existing ? '' : '<label class="field-label" for="description-input">Describe your resource</label><textarea id="description-input" class="text-area" placeholder="e.g. 18 sealed first-aid kits, manufacturer expiry in 45 days, kept dry at ambient temperature" autofocus></textarea><div class="ai-hint"><span>✳</span><span><strong>AI-style draft extraction</strong> suggests resource type, category, quantity, and expiry from your description. Check the source label and correct every field.</span></div><button class="button button-primary modal-main-action" data-action="extract-details">✳ &nbsp; Organize details</button><div class="modal-or"><span>OR ADD DETAILS MANUALLY</span></div>'}
     <form id="listing-form" class="listing-form">
       <div class="form-grid"><label><span>Resource type</span><select name="resourceType">${RESOURCE_TYPES.map((type) => `<option>${escapeHtml(type)}</option>`).join('')}</select></label><label><span>Specific category</span><select name="category">${RESOURCE_CATEGORIES.Food.map((category) => `<option>${escapeHtml(category)}</option>`).join('')}</select></label>
       <label class="form-wide"><span>Listing title</span><input name="title" required maxlength="120" placeholder="Brand/model, product, size, edition, or pack details" /></label>
       <label><span>Usable quantity</span><input name="quantity" required type="number" min="1" max="9999" value="10" /></label>
       <label><span>Unit</span><input name="unit" required maxlength="24" list="resource-units" value="boxes" placeholder="e.g. boxes, devices, kg" /><datalist id="resource-units"><option>boxes</option><option>loaves</option><option>meals</option><option>crates</option><option>kg</option><option>kits</option><option>sets</option><option>books</option><option>coats</option><option>items</option><option>pairs</option><option>devices</option></datalist></label>
       <label><span>Price per unit (AED)</span><input name="priceAED" type="number" min="0" max="100000" step="0.01" value="0" required /><small class="form-help">Enter 0 for a donation. Any purchase payment is simulated in this demo.</small></label>
-      <label><span>Order-by window</span><select name="expiryHours"><option value="8">Company can fulfil today</option><option value="24">Within 24 hours</option><option value="48">Within 2 days</option><option value="72">Within 3 days</option><option value="168">Within 7 days</option></select></label>
+      ${existing ? `<label><span>Order-by deadline</span><input name="availableUntilLocal" type="datetime-local" value="${localDateTime(existing.availableUntil)}" required /></label>` : '<label><span>Order-by window</span><select name="expiryHours"><option value="8">Company can fulfil today</option><option value="24">Within 24 hours</option><option value="48">Within 2 days</option><option value="72">Within 3 days</option><option value="168">Within 7 days</option></select></label>'}
       <label class="form-wide"><span>Use-by / manufacturer expiry <small class="item-expiry-hint">(required for food and medical equipment)</small></span><input name="expiresAt" type="date" /><small class="form-help">Use the actual package/device label. The company must not dispatch after this date; the NGO can set its own minimum remaining shelf life.</small></label>
       <label class="form-wide"><span>Condition</span><input name="condition" required maxlength="160" placeholder="New, sealed; tested; grade; wear; defects; recalls checked…" /></label>
       <label class="form-wide"><span>Specifications &amp; restrictions</span><textarea name="specifications" maxlength="700" rows="2" placeholder="Brand/model, dimensions, grade/edition, sizes, ingredients/allergens, sealed status, age…"></textarea></label>
@@ -513,9 +594,17 @@ async function openListingModal() {
       <label class="form-wide"><span>Company collection address / area</span><input name="location" required maxlength="140" value="North Market · 0.8 mi" placeholder="Full handoff area for the partner" /></label>
       <label class="form-wide"><span>Additional notes</span><textarea name="notes" maxlength="700" rows="2" placeholder="Packing, access hours, loading requirements, donor contact method…"></textarea></label>
       <div class="form-wide logistics-notice"><strong>The company is responsible for fulfilment logistics.</strong> After checkout, you will agree and record the carrier, delivery method, ETA, tracking, and delivery fee with the NGO. Refound does not dispatch or book a courier in this demo.</div></div>
-      <div class="form-error" id="form-error" role="alert"></div><button class="button button-primary modal-main-action" type="submit">Publish detailed listing <span>→</span></button>
+      <div class="form-error" id="form-error" role="alert"></div><button class="button button-primary modal-main-action" type="submit">${existing ? 'Save listing changes' : 'Publish detailed listing'} <span>→</span></button>
     </form>`);
-  updateListingTypeControls('Food');
+  updateListingTypeControls(existing?.resourceType ?? 'Food', existing?.category);
+  if (existing) {
+    const form = modalRoot.querySelector('#listing-form');
+    form.dataset.listingId = existing.id;
+    fillListingForm({
+      ...existing,
+      availableUntilLocal: localDateTime(existing.availableUntil),
+    });
+  }
 }
 
 function fillListingForm(draft) {
@@ -546,12 +635,12 @@ function updateListingTypeControls(resourceType, selectedCategory) {
 }
 
 async function openDeliveryModal(transferId) {
-  if (session?.role !== 'company' && session?.role !== 'admin') return toast('Only the selling company can arrange delivery.');
+  if (session?.role !== 'company') return toast('Only the selling company can arrange delivery.');
   const [surplus, needs, transfers] = await Promise.all([service.getSurplus(), service.getNeeds(), service.getTransfers()]);
   const transfer = transfers.find((item) => item.id === transferId);
   const item = surplus.find((record) => record.id === transfer?.surplusId);
   const need = needs.find((record) => record.id === transfer?.needId);
-  if (!transfer || !item || (session.role !== 'admin' && item.donor !== session.name)) return toast('This is not your company’s order to fulfil.');
+  if (!transfer || !item || item.donor !== session.name) return toast('This is not your company’s order to fulfil.');
   if (transfer.status !== 'approved') return toast('Confirm this order before arranging delivery.');
   const arrival = new Date(Date.now() + 24 * 3_600_000);
   arrival.setMinutes(0, 0, 0);
@@ -593,8 +682,19 @@ async function checkoutBasket() {
     const item = surplus.find((record) => record.id === line.surplusId);
     return sum + Number(item?.priceAED ?? 0) * line.quantity;
   }, 0) * 100) / 100;
-  if (liveMode && total > 0) {
-    toast('A live Odoo payment provider is not configured yet. No paid order was created.');
+  if (total > 0 && stripeSecretConfigured && !stripeConfigured) {
+    return toast('Stripe test checkout is waiting for the webhook signing secret. No order or payment was created.');
+  }
+  if (total > 0 && stripeConfigured) {
+    if (lines.some((line) => Number(surplus.find((record) => record.id === line.surplusId)?.priceAED ?? 0) <= 0)) {
+      return toast('Separate free donations from paid items before starting Stripe Checkout.');
+    }
+    try {
+      const checkout = await service.createStripeCheckout(lines.map(({ surplusId, needId, quantity }) => ({ surplusId, needId, quantity })));
+      window.location.assign(checkout.checkoutUrl);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Unable to start Stripe Checkout.');
+    }
     return;
   }
   const method = document.querySelector('#cart-payment-method')?.value ?? 'demo-card';
@@ -622,8 +722,21 @@ document.addEventListener('click', async (event) => {
   }
   const action = target.dataset.action;
   if (action === 'open-listing') await openListingModal();
+  if (action === 'edit-listing') {
+    if (session?.role !== 'company') return toast('Only the listing company can edit its surplus.');
+    const items = await service.getSurplus();
+    const item = items.find((record) => record.id === target.dataset.id && record.donor === session.name);
+    if (!item) return toast('This listing does not belong to your business.');
+    await openListingModal(item);
+  }
   if (action === 'open-need') await openNeedModal();
-  if (action === 'add-to-cart') await openAddToCartModal(target.dataset.surplus, target.dataset.need);
+  if (action === 'add-to-cart') {
+    try {
+      await addMatchedResourceToBasket(target.dataset.surplus, target.dataset.need);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Unable to add this item to your basket.');
+    }
+  }
   if (action === 'checkout') await checkoutBasket();
   if (action === 'remove-cart-line') {
     await service.removeFromCart(target.dataset.key);
@@ -673,6 +786,31 @@ document.addEventListener('click', async (event) => {
     activeView = 'messages';
     await render();
   }
+  if (action === 'select-chat') {
+    selectedChatId = target.dataset.id;
+    activeView = 'chat';
+    await render();
+  }
+  if (action === 'start-chat' || action === 'chat-organization') {
+    if (!session || !['company', 'ngo'].includes(session.role) || !await isVerified()) {
+      return toast('Only verified businesses and NGOs can start partner chats.');
+    }
+    try {
+      const applications = await verificationService.getApplications();
+      let peerId = target.dataset.id;
+      if (!peerId) {
+        const peer = applications.find((item) => item.organizationName === target.dataset.name && item.status === 'approved');
+        peerId = peer?.id;
+      }
+      if (!peerId) throw new Error('That organization is not linked to a verified partner profile.');
+      selectedChatId = await chatService.startConversation(peerId, applications, session);
+      activeView = 'chat';
+      await render();
+      document.querySelector('#chat-message-input')?.focus();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Unable to start a partner conversation.');
+    }
+  }
   if (action === 'start-verification') {
     if (liveMode && !session) {
       activeView = 'login';
@@ -684,8 +822,47 @@ document.addEventListener('click', async (event) => {
     activeView = 'verification';
     await render();
   }
+  if (action === 'use-trial-credentials') {
+    const email = document.querySelector('#login-form [name="email"]');
+    const password = document.querySelector('#login-form [name="password"]');
+    if (email instanceof HTMLInputElement && password instanceof HTMLInputElement) {
+      email.value = target.dataset.email ?? '';
+      password.value = target.dataset.password ?? '';
+      password.focus();
+    }
+  }
+  if (action === 'read-notification') {
+    try {
+      if (liveMode) {
+        const item = notifications.find((notification) => notification.id === target.dataset.id);
+        if (item) item.readAt = new Date().toISOString();
+      } else {
+        const response = await fetch(`/api/notifications/${encodeURIComponent(target.dataset.id)}/read`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Unable to update notification (${response.status}).`);
+      }
+      if (!liveMode) notifications = await fetchNotifications();
+      await render();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Unable to update this notification.');
+    }
+  }
   if (action === 'sign-out') {
-    sessionStorage.removeItem('refound-demo-session');
+    if (!liveMode) {
+      try {
+        const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Sign-out failed (${response.status}).`);
+      } catch (error) {
+        toast(error instanceof Error ? error.message : 'Unable to end the Refound server session.');
+        return;
+      }
+    }
     session = null;
     assistantMessages = [];
     activeView = 'home';
@@ -712,13 +889,13 @@ document.addEventListener('click', async (event) => {
     await service.resetDemo();
     await verificationService.reset();
     await salesService.reset();
-    sessionStorage.removeItem('refound-demo-session');
     session = null;
     activeView = 'home';
     toast('The local Refound demo has been reset.');
     await render();
   }
   if (action === 'export-report') exportReportCsv();
+  if (action === 'export-organization-report') exportOrganizationReportCsv();
   if (action === 'toggle-sales-lead') {
     if (session?.role !== 'admin') return toast('Administrator access is required to update a sales enquiry.');
     try {
@@ -766,19 +943,25 @@ document.addEventListener('submit', async (event) => {
   const form = event.target;
   const data = new FormData(form);
   if (form.id === 'login-form') {
-    const role = String(data.get('role'));
     const email = String(data.get('email')).trim().toLowerCase();
-    if (!['company', 'ngo', 'admin'].includes(role) || !email) return toast('Choose a portal and enter your demo email.');
-    const presets = {
-      company: { name: 'Meadow & Fig', email: 'morgan@meadowfig.demo', contactName: 'Morgan Fields' },
-      ngo: { name: 'Northside Food Collective', email: 'jamie@northside.demo', contactName: 'Jamie River' },
-      admin: { name: 'Refound Admin', email: 'admin@refound.demo', contactName: 'Refound Admin' },
-    };
-    session = { role, name: presets[role].name, email, contactName: presets[role].contactName };
-    sessionStorage.setItem('refound-demo-session', JSON.stringify(session));
-    activeView = 'overview';
-    await render();
-    toast(`${role === 'admin' ? 'Administrator' : 'Partner'} demo workspace opened. This is not a real login.`);
+    const error = document.querySelector('#login-error');
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: String(data.get('password') ?? '') }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Sign-in failed (${response.status}).`);
+      session = payload.user;
+      await service.enablePersistence();
+      activeView = 'overview';
+      await render();
+      toast('You are signed in to your Refound workspace.');
+    } catch (errorValue) {
+      error.textContent = errorValue instanceof Error ? errorValue.message : 'Unable to sign in.';
+    }
     return;
   }
   if (form.id === 'verification-form') {
@@ -804,8 +987,6 @@ document.addEventListener('submit', async (event) => {
       if (liveMode) {
         for (const file of files) await verificationService.uploadDocument(application.id, file);
       }
-      session = { role: application.organizationType, name: application.organizationName, email: application.email, contactName: application.contactName };
-      sessionStorage.setItem('refound-demo-session', JSON.stringify(session));
       verificationRole = application.organizationType;
       activeView = 'verification';
       await render();
@@ -849,27 +1030,72 @@ document.addEventListener('submit', async (event) => {
     toast('Preview only: this message has not been sent or saved.');
     return;
   }
+  if (form.id === 'newsletter-form') {
+    const error = form.querySelector('#newsletter-error');
+    const result = form.querySelector('#newsletter-result');
+    if (!newsletterConfigured) {
+      error.textContent = 'Newsletter signup is not connected yet. Please try again after Odoo Marketing is configured.';
+      return;
+    }
+    if (data.get('consent') !== 'on') {
+      error.textContent = 'Please confirm that you agree to receive newsletter emails.';
+      return;
+    }
+    error.textContent = '';
+    result.textContent = '';
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(data.get('name') ?? ''),
+          email: String(data.get('email') ?? ''),
+          consent: true,
+          website: String(data.get('website') ?? ''),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Newsletter signup failed (${response.status}).`);
+      form.reset();
+      result.textContent = payload.message || 'Thanks for subscribing to Refound updates.';
+    } catch (errorValue) {
+      error.textContent = errorValue instanceof Error ? errorValue.message : 'Unable to save your newsletter subscription.';
+    } finally {
+      button.disabled = false;
+    }
+    return;
+  }
+  if (form.id === 'order-message-form') {
+    const message = String(data.get('message') ?? '').trim();
+    try {
+      await service.sendMessage(form.dataset.order, session.name, session.role, message);
+      await render();
+      document.querySelector('#order-message-form [name="message"]')?.focus();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Unable to send this order message.');
+    }
+    return;
+  }
+  if (form.id === 'chat-message-form') {
+    const message = String(data.get('message') ?? '').trim();
+    try {
+      const applications = await verificationService.getApplications();
+      await chatService.sendMessage(form.dataset.chat, message, applications, session);
+      await render();
+      document.querySelector('#chat-message-input')?.focus();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Unable to send this partner message.');
+    }
+    return;
+  }
   if (form.id === 'sales-form') {
     const error = document.querySelector('#sales-error');
     const consent = data.get('consent') === 'on';
     if (!consent) {
       error.textContent = 'Confirm that you understand this is a local demo enquiry.';
-      return;
-    }
-    if (form.id === 'order-message-form') {
-      const message = String(data.get('message') ?? '').trim();
-      try {
-        await service.sendMessage(
-          form.dataset.order,
-          session.name,
-          session.role,
-          message,
-        );
-        await render();
-        document.querySelector('#order-message-form [name="message"]')?.focus();
-      } catch (error) {
-        toast(error instanceof Error ? error.message : 'Unable to send this order message.');
-      }
       return;
     }
     try {
@@ -934,7 +1160,6 @@ document.addEventListener('submit', async (event) => {
   }
   if (form.id !== 'listing-form') return;
   const quantity = Number(data.get('quantity'));
-  const expiryHours = Number(data.get('expiryHours'));
   const error = modalRoot.querySelector('#form-error');
   if (session?.role !== 'company' || !await isVerified()) {
     error.textContent = 'An approved business partner account is required to list surplus.';
@@ -943,14 +1168,16 @@ document.addEventListener('submit', async (event) => {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) {
     error.textContent = 'Quantity must be a whole number between 1 and 9,999.'; return;
   }
-  const expiryDate = new Date(Date.now() + expiryHours * 3_600_000);
+  const expiryDate = data.has('availableUntilLocal')
+    ? new Date(String(data.get('availableUntilLocal')))
+    : new Date(Date.now() + Number(data.get('expiryHours')) * 3_600_000);
   if (Number.isNaN(expiryDate.getTime()) || expiryDate.getTime() <= Date.now()) {
     error.textContent = 'Choose a valid pickup window.'; return;
   }
   try {
     const expirationDate = String(data.get('expiresAt') ?? '');
     const expiresAt = expirationDate ? new Date(`${expirationDate}T23:59:59`).toISOString() : '';
-    await service.createSurplus({
+    const listing = {
       title: String(data.get('title')).trim(),
       resourceType: String(data.get('resourceType')),
       category: String(data.get('category')),
@@ -964,8 +1191,11 @@ document.addEventListener('submit', async (event) => {
       specifications: String(data.get('specifications')).trim(),
       storageInstructions: String(data.get('storageInstructions')).trim(),
       notes: String(data.get('notes')).trim(),
-    }, session.name);
-    closeModal(); toast('Your surplus is live and ready to be matched.');
+    };
+    const listingId = form.dataset.listingId;
+    if (listingId) await service.updateSurplus(listingId, listing, session.name);
+    else await service.createSurplus(listing, session.name);
+    closeModal(); toast(listingId ? 'Your listing changes are saved.' : 'Your surplus is live and ready to be matched.');
     activeView = 'surplus'; await render();
   } catch (errorValue) { error.textContent = errorValue instanceof Error ? errorValue.message : 'Could not publish listing.'; }
 });
@@ -984,7 +1214,8 @@ document.addEventListener('input', (event) => {
 async function submitAssistantQuestion(question) {
   try {
     const [surplus, needs] = await Promise.all([service.getSurplus(), service.getNeeds()]);
-    const answer = await assistant.answer(question, buildMatches(surplus, needs));
+    const provider = geminiConfigured && session ? geminiAssistant : assistant;
+    const answer = await provider.answer(question, buildMatches(surplus, needs));
     assistantMessages.push({ question: question.trim(), answer });
     activeView = 'assistant';
     await render();
@@ -1005,10 +1236,33 @@ async function exportReportCsv() {
     link.download = `refound-report-${reportRange}-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-    toast(`${records.length} demo handoff${records.length === 1 ? '' : 's'} exported to CSV.`);
+    toast(`${report.records.length} handoff${report.records.length === 1 ? '' : 's'} exported to CSV.`);
   } catch (error) {
     console.error('Unable to export the report.', error);
     toast('Unable to export this report.');
+  }
+}
+
+async function exportOrganizationReportCsv() {
+  if (session?.role !== 'admin') return toast('Administrator access is required to export the verification report.');
+  try {
+    const [applications, surplus, needs] = await Promise.all([
+      verificationService.getApplications(),
+      service.getSurplus(),
+      service.getNeeds(),
+    ]);
+    const report = buildOrganizationVerificationReport(applications, surplus, needs);
+    const csv = buildOrganizationVerificationCsv(applications, surplus, needs);
+    const downloadUrl = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `refound-verification-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    toast(`${report.rows.length} organization record${report.rows.length === 1 ? '' : 's'} exported.`);
+  } catch (error) {
+    console.error('Unable to export the verification report.', error);
+    toast(error instanceof Error ? error.message : 'Unable to export the verification report.');
   }
 }
 
@@ -1030,16 +1284,14 @@ document.addEventListener('change', async (event) => {
     reportRange = event.target.value;
     await render();
   }
-  if (event.target instanceof HTMLSelectElement && event.target.id === 'login-role') {
-    const email = document.querySelector('#login-form [name="email"]');
-    if (email instanceof HTMLInputElement) {
-      const defaults = { company: 'morgan@meadowfig.demo', ngo: 'jamie@northside.demo', admin: 'admin@refound.demo' };
-      email.value = defaults[event.target.value] ?? '';
-    }
-  }
 });
 
 modalRoot?.addEventListener('click', (event) => { if (event.target === modalRoot) closeModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && modalRoot && !modalRoot.hidden) closeModal(); });
 document.querySelector('#menu-toggle')?.addEventListener('click', () => document.querySelector('#sidebar')?.classList.toggle('open'));
+if (new URLSearchParams(window.location.search).get('payment') === 'success') {
+  toast('Stripe returned successfully. Payment will show as complete after the signed webhook confirms it.');
+} else if (new URLSearchParams(window.location.search).get('payment') === 'cancelled') {
+  toast('Checkout was cancelled. No payment is recorded until Stripe confirms it.');
+}
 configureBackend();

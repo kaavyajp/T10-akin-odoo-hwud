@@ -56,6 +56,100 @@ function csvCell(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+/** Build an admin audit of verified organizations and public records that belong to them. */
+export function buildOrganizationVerificationReport(applications, surplus, needs) {
+  const matchApplication = (record, ownerId, ownerName) => applications.find((application) => {
+    const recordOwnerId = record[ownerId];
+    if (recordOwnerId != null) return String(recordOwnerId) === String(application.id);
+    return record[ownerName] === application.organizationName;
+  });
+  const rows = applications.map((application) => {
+    const resourceCount = surplus.filter((item) => (item.status === 'available' || item.status === 'published')
+      && matchApplication(item, 'donorId', 'donor')?.id === application.id).length;
+    const needCount = needs.filter((need) => (need.status == null || need.status === 'open') && need.quantity > 0
+      && matchApplication(need, 'organizationId', 'organization')?.id === application.id).length;
+    const listed = resourceCount + needCount > 0;
+    return {
+      id: String(application.id),
+      organizationName: application.organizationName,
+      organizationType: application.organizationType,
+      verificationStatus: application.status,
+      registrationProvided: Boolean(application.registrationId),
+      resourceCount,
+      needCount,
+      reviewedAt: application.reviewedAt ?? '',
+      reviewerEmail: application.reviewerEmail ?? '',
+      websiteStatus: application.status === 'approved'
+        ? listed ? 'Verified and listed' : 'Verified; no active listings'
+        : listed ? 'Review required; listed records found' : `Not verified (${application.status})`,
+      exception: application.status !== 'approved' && listed,
+    };
+  });
+  const untracked = new Map();
+  for (const [records, ownerId, ownerName, kind] of [
+    [surplus, 'donorId', 'donor', 'resource'],
+    [needs, 'organizationId', 'organization', 'need'],
+  ]) {
+    for (const record of records) {
+      const isListed = kind === 'resource'
+        ? record.status === 'available' || record.status === 'published'
+        : (record.status == null || record.status === 'open') && record.quantity > 0;
+      if (!isListed || matchApplication(record, ownerId, ownerName)?.status === 'approved') continue;
+      const name = record[ownerName] || 'Organization not linked to a verification record';
+      const key = `${kind}:${record[ownerId] ?? name}`;
+      const entry = untracked.get(key) ?? {
+        id: key,
+        organizationName: name,
+        organizationType: kind === 'resource' ? 'company' : 'ngo',
+        verificationStatus: 'missing',
+        registrationProvided: false,
+        resourceCount: 0,
+        needCount: 0,
+        reviewedAt: '',
+        reviewerEmail: '',
+        websiteStatus: 'Review required; listed records found',
+        exception: true,
+      };
+      if (kind === 'resource') entry.resourceCount += 1;
+      else entry.needCount += 1;
+      untracked.set(key, entry);
+    }
+  }
+  rows.push(...untracked.values());
+  const exceptions = rows.filter((row) => row.exception);
+  return {
+    rows,
+    exceptions,
+    verifiedCount: rows.filter((row) => row.verificationStatus === 'approved').length,
+    pendingCount: rows.filter((row) => row.verificationStatus === 'pending').length,
+    rejectedCount: rows.filter((row) => row.verificationStatus === 'rejected').length,
+    activeListings: rows.reduce((sum, row) => sum + row.resourceCount + row.needCount, 0),
+    unverifiedListings: exceptions.reduce((sum, row) => sum + row.resourceCount + row.needCount, 0),
+  };
+}
+
+/** Spreadsheet-safe export of the verification and public-listing audit. */
+export function buildOrganizationVerificationCsv(applications, surplus, needs) {
+  const report = buildOrganizationVerificationReport(applications, surplus, needs);
+  const rows = [
+    ['Organization', 'Type', 'Verification status', 'Registration reference present', 'Public resource listings', 'Open community needs', 'Website status', 'Reviewed at', 'Reviewer'],
+    ...report.rows.map((record) => {
+      return [
+        record.organizationName,
+        record.organizationType === 'ngo' ? 'NGO' : 'Business',
+        record.verificationStatus,
+        record.registrationProvided ? 'Yes' : 'No',
+        record.resourceCount,
+        record.needCount,
+        record.websiteStatus,
+        record.reviewedAt,
+        record.reviewerEmail,
+      ];
+    }),
+  ];
+  return rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
+}
+
 /** Export only report-relevant partner and transfer fields; escape formula-like cells for spreadsheets. */
 export function buildTransferCsv(records, surplus, needs, statusLabels) {
   const rows = [
